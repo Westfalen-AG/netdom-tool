@@ -30,6 +30,7 @@ import {
   Brightness7 as LightModeIcon,
   People as PeopleIcon,
   Dns as ModemIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 
 // Komponenten importieren
@@ -41,8 +42,10 @@ import VerbindungsVerwaltung from './components/VerbindungsVerwaltung';
 import NetzwerkDiagramm from './components/NetzwerkDiagramm';
 import ExportBereich from './components/ExportBereich';
 import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
+import Changelog from './components/Changelog';
 
 const DRAWER_WIDTH = 240;
+const APP_VERSION = '1.2.0';
 
 // Westfalen AG Theme-Konfiguration
 const getWestfalenTheme = (darkMode: boolean) => createTheme({
@@ -183,6 +186,7 @@ const App: React.FC = () => {
     { text: 'Switch-Stacks', icon: <ModemIcon />, path: '/stacks' },
     { text: 'Netzwerkdiagramm', icon: <DiagramIcon />, path: '/diagramm' },
     { text: 'Export', icon: <ExportIcon />, path: '/export' },
+    { text: 'Changelog', icon: <HistoryIcon />, path: '/changelog' },
   ];
 
   const handleMenuClick = (path: string) => {
@@ -338,6 +342,7 @@ const App: React.FC = () => {
                   <Route path="/diagramm" element={<NetzwerkDiagramm />} />
                   <Route path="/diagramm/:standortName" element={<NetzwerkDiagramm />} />
                   <Route path="/export" element={<ExportBereich />} />
+                  <Route path="/changelog" element={<Changelog />} />
                 </Routes>
               </Box>
               
@@ -352,7 +357,7 @@ const App: React.FC = () => {
                 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  Copyright 2025 Westfalen AG. Bei Fragen zum Tool oder bei Problemen bitte an{' '}
+                  Copyright 2025 Westfalen AG. Bei Fragen, Problemen oder Anregungen bitte an{' '}
                   <a
                     href="mailto:n.terhorst@westfalen.com"
                     style={{
@@ -368,7 +373,10 @@ const App: React.FC = () => {
                   >
                     Niklas Terhorst
                   </a>
-                  {' '}wenden.
+                  {' '}per E-Mail oder Teams wenden.
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, opacity: 0.8 }}>
+                  Version {APP_VERSION}
                 </Typography>
               </Box>
             </Container>
