@@ -402,14 +402,14 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     };
 
     return (
-      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: exportMode ? '2px' : '3px', width: '100%' }}>
+      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: exportMode ? '3px' : '3px', width: '100%' }}>
         {ports.map((port, index) => {
           const isQSFP = port.portTyp === 'QSFP' || port.portTyp === 'QSFP28';
           const isSFP = port.portTyp === 'SFP' || port.portTyp === 'SFP+';
           const isRJ45 = port.portTyp === 'RJ45';
           
           const portSize = exportMode 
-            ? (isQSFP ? '28px' : '22px') // Etwas größere Ports für bessere Lesbarkeit im Export
+            ? (isQSFP ? '36px' : '29px') // 30% größere Ports für bessere Lesbarkeit im Export
             : (isQSFP ? '48px' : '36px'); // Normale Größe für Anzeige
           const portColor = getPortColor(port);
           const borderColor = isRJ45 ? '#4caf50' : isSFP ? '#ff9800' : '#9c27b0';
@@ -470,7 +470,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: exportMode ? '9px' : '12px',
+                  fontSize: exportMode ? '12px' : '12px',
                   fontWeight: 'bold',
                   color: getPortTextColor(port),
                   cursor: port.belegt && !exportMode ? 'pointer' : 'default',
@@ -492,7 +492,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                 <Box sx={{ 
                   textAlign: 'center',
                   lineHeight: 1.2,
-                  fontSize: exportMode ? '8px' : '10px',
+                  fontSize: exportMode ? '10px' : '10px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -531,7 +531,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     }, {} as Record<number, RackGeraet[]>);
 
     const belegteHUs = Object.keys(geraeteNachHU).map(Number).sort((a, b) => a - b);
-    const huHoehe = exportMode ? 80 : 110; // Angepasste HU-Höhe für Export mit größeren Ports
+    const huHoehe = exportMode ? 100 : 110; // Angepasste HU-Höhe für Export mit größeren Ports
 
     // Dynamische Grid-Größe basierend auf Anzahl der Racks
     const gridSize = gesamtAnzahlRacks === 1 ? 

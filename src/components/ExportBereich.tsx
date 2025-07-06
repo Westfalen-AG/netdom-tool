@@ -154,13 +154,13 @@ const ExportBereich: React.FC = () => {
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
-        orientation: 'portrait',
+        orientation: 'landscape',
         unit: 'mm',
         format: 'a4',
       });
 
-      const imgWidth = 210;
-      const pageHeight = 295;
+      const imgWidth = 295;
+      const pageHeight = 210;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let heightLeft = imgHeight;
 
@@ -332,9 +332,56 @@ const ExportBereich: React.FC = () => {
           </Typography>
           <Divider sx={{ mb: 3 }} />
 
-          <div ref={exportRef} style={{ backgroundColor: 'white', padding: '20px', color: '#000000' }}>
+          <div ref={exportRef} style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            color: '#000000'
+          }}>
+            {/* CSS-Stile für bessere Seitenumbrüche */}
+            <style>
+              {`
+                @media print {
+                  .export-section {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                    margin-bottom: 20px;
+                  }
+                  
+                  .export-table {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                  }
+                  
+                  .export-table tr {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                  }
+                  
+                  .export-table thead {
+                    display: table-header-group;
+                  }
+                  
+                  .export-table tbody {
+                    display: table-row-group;
+                  }
+                  
+                  .export-header {
+                    page-break-after: avoid !important;
+                    break-after: avoid !important;
+                  }
+                  
+                  .export-section-title {
+                    page-break-after: avoid !important;
+                    break-after: avoid !important;
+                    margin-top: 30px;
+                    margin-bottom: 15px;
+                  }
+                }
+              `}
+            </style>
+
             {/* Header für Export */}
-            <Box sx={{ mb: 4, borderBottom: '2px solid #c62828', pb: 2 }}>
+            <Box className="export-header" sx={{ mb: 4, borderBottom: '2px solid #c62828', pb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <img 
                   src="/logo_schrift_schwarz.png" 
@@ -360,8 +407,8 @@ const ExportBereich: React.FC = () => {
 
             {/* Standort-Details */}
             {exportOptions.standortDetails && (
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+              <Box className="export-section" sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom className="export-section-title" sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <LocationIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Standort-Details
                 </Typography>
@@ -411,16 +458,18 @@ const ExportBereich: React.FC = () => {
 
             {/* Geräte-Übersicht */}
             {exportOptions.geraeteUebersicht && (
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+              <Box className="export-section" sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom className="export-section-title" sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <RouterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Geräte-Übersicht
                 </Typography>
-                <TableContainer>
+                <TableContainer className="export-table">
                   <Table size="small" sx={{ 
                     '& .MuiTableCell-root': { 
                       color: '#000000',
-                      borderColor: '#e0e0e0'
+                      borderColor: '#e0e0e0',
+                      padding: '8px 12px',
+                      fontSize: '0.875rem'
                     }
                   }}>
                     <TableHead>
@@ -429,6 +478,7 @@ const ExportBereich: React.FC = () => {
                         <TableCell><strong>Typ</strong></TableCell>
                         <TableCell><strong>Modell</strong></TableCell>
                         <TableCell><strong>IP-Konfiguration</strong></TableCell>
+                        <TableCell><strong>MAC-Adresse</strong></TableCell>
                         <TableCell><strong>Ports</strong></TableCell>
                         <TableCell><strong>Standort/Raum</strong></TableCell>
                       </TableRow>
@@ -474,6 +524,7 @@ const ExportBereich: React.FC = () => {
                               ? `Statisch: ${geraet.ipKonfiguration.ipAdresse || 'N/A'}` 
                               : 'DHCP'}
                           </TableCell>
+                          <TableCell>{geraet.macAdresse || '-'}</TableCell>
                           <TableCell>{geraet.anzahlNetzwerkports}</TableCell>
                           <TableCell>
                             {(() => {
@@ -502,17 +553,19 @@ const ExportBereich: React.FC = () => {
 
             {/* Verbindungs-Details */}
             {exportOptions.verbindungsDetails && (
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+              <Box className="export-section" sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom className="export-section-title" sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <CableIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Verbindungs-Details
                 </Typography>
                 {standortData.verbindungen.length > 0 ? (
-                  <TableContainer>
+                  <TableContainer className="export-table">
                     <Table size="small" sx={{ 
                       '& .MuiTableCell-root': { 
                         color: '#000000',
-                        borderColor: '#e0e0e0'
+                        borderColor: '#e0e0e0',
+                        padding: '8px 12px',
+                        fontSize: '0.875rem'
                       }
                     }}>
                       <TableHead>
@@ -569,8 +622,8 @@ const ExportBereich: React.FC = () => {
 
             {/* Rack-Visualisierung */}
             {exportOptions.rackVisualisierung && (
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+              <Box className="export-section" sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom className="export-section-title" sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <RouterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Rack-Visualisierung
                 </Typography>
@@ -597,7 +650,7 @@ const ExportBereich: React.FC = () => {
             <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
               <Typography variant="body2" sx={{ color: '#666666' }}>
                 © 2025 Westfalen AG - Network Documentation Tool
-      </Typography>
+              </Typography>
             </Box>
           </div>
         </Paper>
