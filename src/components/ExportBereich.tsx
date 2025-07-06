@@ -332,62 +332,74 @@ const ExportBereich: React.FC = () => {
           </Typography>
           <Divider sx={{ mb: 3 }} />
 
-          <div ref={exportRef} style={{ backgroundColor: 'white', padding: '20px' }}>
+          <div ref={exportRef} style={{ backgroundColor: 'white', padding: '20px', color: '#000000' }}>
             {/* Header für Export */}
-            <Box sx={{ mb: 4, textAlign: 'center', borderBottom: '2px solid #1976d2', pb: 2 }}>
-              <Typography variant="h4" component="h1" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
-                Westfalen AG - Network Documentation
-              </Typography>
-              <Typography variant="h5" sx={{ mt: 1 }}>
-                Standort: {standortData.standort.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Exportiert am: {new Date().toLocaleDateString('de-DE')}
-              </Typography>
+            <Box sx={{ mb: 4, borderBottom: '2px solid #c62828', pb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <img 
+                  src="/logo_schrift_schwarz.png" 
+                  alt="Westfalen AG Logo" 
+                  style={{ 
+                    height: '60px', 
+                    objectFit: 'contain'
+                  }} 
+                />
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="h4" component="h1" sx={{ color: '#c62828', fontWeight: 'bold' }}>
+                    Netzwerk Dokumentation
+                  </Typography>
+                  <Typography variant="h5" sx={{ mt: 1, color: '#000000' }}>
+                    Standort: {standortData.standort.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#666666' }}>
+                    Exportiert am: {new Date().toLocaleDateString('de-DE')}
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
 
             {/* Standort-Details */}
             {exportOptions.standortDetails && (
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <LocationIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Standort-Details
                 </Typography>
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid item xs={6}>
-                    <Typography variant="subtitle2">Adresse:</Typography>
-                    <Typography variant="body2">{standortData.standort.adresse}</Typography>
+                    <Typography variant="subtitle2" sx={{ color: '#000000' }}>Adresse:</Typography>
+                    <Typography variant="body2" sx={{ color: '#333333' }}>{standortData.standort.adresse}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="subtitle2">Anzahl Geräte:</Typography>
-                    <Typography variant="body2">{standortData.geraete.length}</Typography>
+                    <Typography variant="subtitle2" sx={{ color: '#000000' }}>Anzahl Geräte:</Typography>
+                    <Typography variant="body2" sx={{ color: '#333333' }}>{standortData.geraete.length}</Typography>
                   </Grid>
                 </Grid>
 
                 {/* Ansprechpartner */}
                 {(standortData.standort.ansprechpartnerIT || standortData.standort.ansprechpartnerVorOrt) && (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>Ansprechpartner:</Typography>
+                    <Typography variant="subtitle2" gutterBottom sx={{ color: '#000000' }}>Ansprechpartner:</Typography>
                     <Grid container spacing={2}>
                       {standortData.standort.ansprechpartnerIT && (
                         <Grid item xs={6}>
-                          <Typography variant="body2"><strong>IT:</strong> {standortData.standort.ansprechpartnerIT.name}</Typography>
+                          <Typography variant="body2" sx={{ color: '#333333' }}><strong>IT:</strong> {standortData.standort.ansprechpartnerIT.name}</Typography>
                           {standortData.standort.ansprechpartnerIT.telefon && (
-                            <Typography variant="body2">Tel: {standortData.standort.ansprechpartnerIT.telefon}</Typography>
+                            <Typography variant="body2" sx={{ color: '#333333' }}>Tel: {standortData.standort.ansprechpartnerIT.telefon}</Typography>
                           )}
                           {standortData.standort.ansprechpartnerIT.email && (
-                            <Typography variant="body2">Email: {standortData.standort.ansprechpartnerIT.email}</Typography>
+                            <Typography variant="body2" sx={{ color: '#333333' }}>Email: {standortData.standort.ansprechpartnerIT.email}</Typography>
                           )}
                         </Grid>
                       )}
                       {standortData.standort.ansprechpartnerVorOrt && (
                         <Grid item xs={6}>
-                          <Typography variant="body2"><strong>Vor Ort:</strong> {standortData.standort.ansprechpartnerVorOrt.name}</Typography>
+                          <Typography variant="body2" sx={{ color: '#333333' }}><strong>Vor Ort:</strong> {standortData.standort.ansprechpartnerVorOrt.name}</Typography>
                           {standortData.standort.ansprechpartnerVorOrt.telefon && (
-                            <Typography variant="body2">Tel: {standortData.standort.ansprechpartnerVorOrt.telefon}</Typography>
+                            <Typography variant="body2" sx={{ color: '#333333' }}>Tel: {standortData.standort.ansprechpartnerVorOrt.telefon}</Typography>
                           )}
                           {standortData.standort.ansprechpartnerVorOrt.email && (
-                            <Typography variant="body2">Email: {standortData.standort.ansprechpartnerVorOrt.email}</Typography>
+                            <Typography variant="body2" sx={{ color: '#333333' }}>Email: {standortData.standort.ansprechpartnerVorOrt.email}</Typography>
                           )}
                         </Grid>
                       )}
@@ -400,12 +412,17 @@ const ExportBereich: React.FC = () => {
             {/* Geräte-Übersicht */}
             {exportOptions.geraeteUebersicht && (
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <RouterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Geräte-Übersicht
                 </Typography>
                 <TableContainer>
-                  <Table size="small">
+                  <Table size="small" sx={{ 
+                    '& .MuiTableCell-root': { 
+                      color: '#000000',
+                      borderColor: '#e0e0e0'
+                    }
+                  }}>
                     <TableHead>
                       <TableRow>
                         <TableCell><strong>Name</strong></TableCell>
@@ -417,10 +434,40 @@ const ExportBereich: React.FC = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {standortData.geraete.map((geraet) => (
+                      {[...standortData.geraete]
+                        .sort((a, b) => {
+                          // Sortierung wie in StandortDetails: Modem -> SD-WAN -> Firewall -> Switch -> APs -> Rest
+                          const reihenfolge = [
+                            'Router', // Modem
+                            'SD-WAN Gateway',
+                            'Firewall', 
+                            'Switch',
+                            'Access Point',
+                            'Server',
+                            'Kamera',
+                            'VOIP-Phone',
+                            'Drucker',
+                            'NVR',
+                            'Sensor',
+                            'AI-Port',
+                            'Zugangskontrolle',
+                            'Serial Server',
+                            'HMI'
+                          ];
+                          const indexA = reihenfolge.indexOf(a.geraetetyp);
+                          const indexB = reihenfolge.indexOf(b.geraetetyp);
+                          const priorityA = indexA === -1 ? 999 : indexA;
+                          const priorityB = indexB === -1 ? 999 : indexB;
+                          
+                          if (priorityA !== priorityB) {
+                            return priorityA - priorityB;
+                          }
+                          return a.name.localeCompare(b.name);
+                        })
+                        .map((geraet) => (
                         <TableRow key={geraet.id}>
                           <TableCell>{geraet.name}</TableCell>
-                          <TableCell>{geraet.geraetetyp}</TableCell>
+                          <TableCell>{geraet.geraetetyp === 'Router' ? 'Modem' : geraet.geraetetyp}</TableCell>
                           <TableCell>{geraet.modell}</TableCell>
                           <TableCell>
                             {geraet.ipKonfiguration.typ === 'statisch' 
@@ -428,7 +475,23 @@ const ExportBereich: React.FC = () => {
                               : 'DHCP'}
                           </TableCell>
                           <TableCell>{geraet.anzahlNetzwerkports}</TableCell>
-                          <TableCell>{geraet.standortDetails || '-'}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              let standortInfo = geraet.standortDetails || '';
+                              
+                              // Rack-Information hinzufügen wenn vorhanden
+                              if (geraet.rackPosition && geraet.rackPosition.rack && geraet.rackPosition.einheit > 0) {
+                                const rackInfo = `${geraet.rackPosition.rack}, ${geraet.rackPosition.einheit}U`;
+                                if (standortInfo) {
+                                  standortInfo += ` - ${rackInfo}`;
+                                } else {
+                                  standortInfo = rackInfo;
+                                }
+                              }
+                              
+                              return standortInfo || '-';
+                            })()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -440,13 +503,18 @@ const ExportBereich: React.FC = () => {
             {/* Verbindungs-Details */}
             {exportOptions.verbindungsDetails && (
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <CableIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Verbindungs-Details
                 </Typography>
                 {standortData.verbindungen.length > 0 ? (
                   <TableContainer>
-                    <Table size="small">
+                    <Table size="small" sx={{ 
+                      '& .MuiTableCell-root': { 
+                        color: '#000000',
+                        borderColor: '#e0e0e0'
+                      }
+                    }}>
                       <TableHead>
                         <TableRow>
                           <TableCell><strong>Quelle</strong></TableCell>
@@ -455,26 +523,44 @@ const ExportBereich: React.FC = () => {
                           <TableCell><strong>Ziel-Port</strong></TableCell>
                           <TableCell><strong>Kabeltyp</strong></TableCell>
                           <TableCell><strong>Länge</strong></TableCell>
+                          <TableCell><strong>Farbe</strong></TableCell>
                           <TableCell><strong>Kategorie</strong></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {standortData.verbindungen.map((verbindung) => (
-                          <TableRow key={verbindung.id}>
-                            <TableCell>{(verbindung as any).quell_geraet_name}</TableCell>
-                            <TableCell>{(verbindung as any).quell_port}</TableCell>
-                            <TableCell>{(verbindung as any).ziel_geraet_name}</TableCell>
-                            <TableCell>{(verbindung as any).ziel_port}</TableCell>
-                            <TableCell>{verbindung.kabeltyp}</TableCell>
-                            <TableCell>{verbindung.kabeleigenschaften?.laenge ? `${verbindung.kabeleigenschaften.laenge}m` : '-'}</TableCell>
-                            <TableCell>{verbindung.kabeleigenschaften?.kategorie || '-'}</TableCell>
-                          </TableRow>
-                        ))}
+                        {standortData.verbindungen.map((verbindung) => {
+                          // Finde die Geräte für Port-Labels
+                          const quellGeraet = standortData.geraete.find(g => g.id === (verbindung as any).quell_geraet_id);
+                          const zielGeraet = standortData.geraete.find(g => g.id === (verbindung as any).ziel_geraet_id);
+                          
+                          // Finde Port-Labels
+                          const quellPortLabel = quellGeraet?.belegteports?.find(p => p.portNummer === (verbindung as any).quell_port)?.label;
+                          const zielPortLabel = zielGeraet?.belegteports?.find(p => p.portNummer === (verbindung as any).ziel_port)?.label;
+
+                          return (
+                            <TableRow key={verbindung.id}>
+                              <TableCell>{(verbindung as any).quell_geraet_name}</TableCell>
+                              <TableCell>
+                                {(verbindung as any).quell_port}
+                                {quellPortLabel && <div style={{ fontSize: '0.8em', color: '#666666' }}>({quellPortLabel})</div>}
+                              </TableCell>
+                              <TableCell>{(verbindung as any).ziel_geraet_name}</TableCell>
+                              <TableCell>
+                                {(verbindung as any).ziel_port}
+                                {zielPortLabel && <div style={{ fontSize: '0.8em', color: '#666666' }}>({zielPortLabel})</div>}
+                              </TableCell>
+                              <TableCell>{(verbindung as any).kabeltyp}</TableCell>
+                              <TableCell>{(verbindung as any).kabel_laenge ? `${(verbindung as any).kabel_laenge}m` : '-'}</TableCell>
+                              <TableCell>{(verbindung as any).kabel_farbe || '-'}</TableCell>
+                              <TableCell>{(verbindung as any).kabel_kategorie || '-'}</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: '#666666' }}>
                     Keine Verbindungen konfiguriert
                   </Typography>
                 )}
@@ -484,20 +570,24 @@ const ExportBereich: React.FC = () => {
             {/* Rack-Visualisierung */}
             {exportOptions.rackVisualisierung && (
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: '#1976d2', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: '#c62828', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
                   <RouterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Rack-Visualisierung
                 </Typography>
                 <Box sx={{ 
-                  mt: 2, 
-                  p: 2, 
-                  border: '1px solid #e0e0e0', 
-                  borderRadius: 1,
-                  backgroundColor: '#fafafa'
+                  mt: 2,
+                  backgroundColor: '#ffffff',
+                  '& .MuiTypography-root': {
+                    color: '#000000 !important'
+                  },
+                  '& .MuiSvgIcon-root': {
+                    color: '#000000 !important'
+                  }
                 }}>
                   <RackVisualisierung 
                     geraete={standortData.geraete} 
-                    standortId={standortData.standort.id} 
+                    standortId={standortData.standort.id}
+                    exportMode={true}
                   />
                 </Box>
               </Box>
@@ -505,9 +595,9 @@ const ExportBereich: React.FC = () => {
 
             {/* Footer für Export */}
             <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: '#666666' }}>
                 © 2025 Westfalen AG - Network Documentation Tool
-              </Typography>
+      </Typography>
             </Box>
           </div>
         </Paper>

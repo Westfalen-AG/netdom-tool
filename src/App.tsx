@@ -45,7 +45,7 @@ import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
 
 const DRAWER_WIDTH = 240;
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 // Westfalen AG Theme-Konfiguration
 const getWestfalenTheme = (darkMode: boolean) => createTheme({
@@ -218,7 +218,18 @@ const App: React.FC = () => {
               </IconButton>
               
               {/* Westfalen Logo */}
-              <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+              <Box 
+                sx={{ 
+                  mr: 2, 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    opacity: 0.8
+                  }
+                }}
+                onClick={() => navigate('/standorte')}
+              >
                 <img
                   src={darkMode ? "/logo_schrift_weiss.png" : "/logo_schrift_weiss.png"}
                   alt="Westfalen AG"
@@ -375,7 +386,21 @@ const App: React.FC = () => {
                   </a>
                   {' '}per E-Mail oder Teams wenden.
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, opacity: 0.8 }}>
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mt: 0.5, 
+                    opacity: 0.8,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 1,
+                      color: 'primary.main',
+                      textDecoration: 'underline'
+                    }
+                  }}
+                  onClick={() => navigate('/changelog')}
+                >
                   Version {APP_VERSION}
                 </Typography>
               </Box>

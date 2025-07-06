@@ -34,6 +34,45 @@ interface ChangelogEntry {
 const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
+      version: '1.3.0',
+      date: '2025-01-17',
+      type: 'minor',
+      changes: [
+        {
+          type: 'added',
+          description: 'Kabelfarben-basierte Port-Visualisierung in Rack-Diagrammen implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Intelligente Kontrastberechnung für Port-Nummern auf farbigen Hintergründen'
+        },
+        {
+          type: 'added',
+          description: 'Klickbares Logo im Header (führt zur Standort-Übersicht)'
+        },
+        {
+          type: 'added',
+          description: 'Klickbare Versionsanzeige im Footer (führt zum Changelog)'
+        },
+        {
+          type: 'changed',
+          description: 'Export-Design mit Westfalen AG Branding und roter Akzentfarbe'
+        },
+        {
+          type: 'changed',
+          description: 'Verbesserte Darstellung von Rack-Informationen in Standort/Raum-Spalte'
+        },
+        {
+          type: 'changed',
+          description: 'Vollständige Anzeige aller Verbindungsdetails (Farbe, Kategorie, Länge, Labels)'
+        },
+        {
+          type: 'fixed',
+          description: 'Optimierte Lesbarkeit in Light- und Dark-Mode sowie Export-Modus'
+        }
+      ]
+    },
+    {
       version: '1.2.0',
       date: '2025-07-15',
       type: 'minor',

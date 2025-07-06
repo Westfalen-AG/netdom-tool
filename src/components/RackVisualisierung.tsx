@@ -51,6 +51,7 @@ import { ThemeContext } from '../App';
 interface RackVisualisierungProps {
   geraete: Geraet[];
   standortId?: string;
+  exportMode?: boolean;
 }
 
 interface RackGeraet extends Geraet {
@@ -60,9 +61,10 @@ interface RackGeraet extends Geraet {
   };
 }
 
-const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, standortId }) => {
+const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, standortId, exportMode = false }) => {
   const theme = useTheme();
-  const { darkMode } = useContext(ThemeContext);
+  const { darkMode: contextDarkMode } = useContext(ThemeContext);
+  const darkMode = exportMode ? false : contextDarkMode;
   
   const [selectedGeraet, setSelectedGeraet] = useState<RackGeraet | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -249,6 +251,24 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     }
   };
 
+  // Konvertiert Material-UI Farbpalette zu Hex-Farben für Export
+  const getThemeColor = (color: 'primary' | 'secondary' | 'success' | 'warning' | 'error'): string => {
+    switch (color) {
+      case 'primary':
+        return '#1976d2';
+      case 'secondary':
+        return '#9c27b0';
+      case 'success':
+        return '#2e7d32';
+      case 'warning':
+        return '#ed6c02';
+      case 'error':
+        return '#d32f2f';
+      default:
+        return '#1976d2';
+    }
+  };
+
   const getHerstellerLogo = (hersteller: string) => {
     const baseUrl = 'https://logos.freeformatter.com/uploads/generated/1629369100-';
     const fallbackUrl = 'https://via.placeholder.com/60x40/f0f0f0/333333?text=';
@@ -272,6 +292,52 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     }
   };
 
+  // Farbnamen zu Hex-Farbcodes konvertieren
+  const convertFarbeToHex = (farbe: string): string => {
+    if (!farbe) return '#cccccc'; // Standard grau
+    
+    const farbeLower = farbe.toLowerCase().trim();
+    
+    const farbMap: Record<string, string> = {
+      'rot': '#ff0000',
+      'blau': '#0000ff',
+      'grün': '#00ff00',
+      'gelb': '#ffff00',
+      'schwarz': '#000000',
+      'weiß': '#ffffff',
+      'weiss': '#ffffff',
+      'grau': '#808080',
+      'orange': '#ffa500',
+      'lila': '#800080',
+      'violett': '#800080',
+      'pink': '#ff69b4',
+      'rosa': '#ff69b4',
+      'braun': '#964b00',
+      'türkis': '#00ffff',
+      'cyan': '#00ffff',
+      'magenta': '#ff00ff',
+      'lime': '#00ff00',
+      'maroon': '#800000',
+      'navy': '#000080',
+      'olive': '#808000',
+      'purple': '#800080',
+      'silver': '#c0c0c0',
+      'teal': '#008080',
+      'aqua': '#00ffff',
+      'fuchsia': '#ff00ff',
+      'dunkelblau': '#000080',
+      'hellblau': '#add8e6',
+      'dunkelrot': '#8b0000',
+      'hellrot': '#ff6b6b',
+      'dunkelgrün': '#006400',
+      'hellgrün': '#90ee90',
+      'dunkelgrau': '#404040',
+      'hellgrau': '#d3d3d3',
+    };
+    
+    return farbMap[farbeLower] || '#cccccc';
+  };
+
   const renderPortVisualisierung = (ports: any[], geraet: RackGeraet) => {
     if (!ports || ports.length === 0) return null;
 
@@ -279,17 +345,75 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     const stackInfo = geraeteStackZuordnung[geraet.id];
     const istInStack = !!stackInfo && geraet.geraetetyp === 'Switch';
 
+    const getPortColor = (port: any) => {
+      if (!port.belegt) {
+        return exportMode ? '#e0e0e0' : (darkMode ? theme.palette.grey[700] : '#f5f5f5');
+      }
+      
+      // Finde die Verbindung für diesen Port
+      const verbindung = verbindungen.find(v => 
+        (v.quell_geraet_id === geraet.id && v.quell_port === port.portNummer) ||
+        (v.ziel_geraet_id === geraet.id && v.ziel_port === port.portNummer)
+      );
+      
+      // Verwende die Kabelfarbe wenn verfügbar
+      if (verbindung?.kabel_farbe) {
+        return convertFarbeToHex(verbindung.kabel_farbe);
+      }
+      
+      // Fallback zu Standard-Farbe für belegte Ports
+      return '#4caf50';
+    };
+
+    const getPortTextColor = (port: any) => {
+      if (!port.belegt) {
+        return exportMode ? '#000000' : (darkMode ? theme.palette.text.primary : '#666');
+      }
+      
+      // Finde die Verbindung für diesen Port
+      const verbindung = verbindungen.find(v => 
+        (v.quell_geraet_id === geraet.id && v.quell_port === port.portNummer) ||
+        (v.ziel_geraet_id === geraet.id && v.ziel_port === port.portNummer)
+      );
+      
+      // Verwende kontrastierende Textfarbe für Kabelfarben (auch im Export!)
+      if (verbindung?.kabel_farbe) {
+        const hexColor = convertFarbeToHex(verbindung.kabel_farbe);
+        const farbeName = verbindung.kabel_farbe.toLowerCase().trim();
+        
+        // Direkte Zuordnung für bessere Kontrolle
+        if (['schwarz', 'dunkelblau', 'dunkelrot', 'dunkelgrün', 'dunkelgrau', 'braun', 'navy', 'maroon', 'purple', 'lila', 'violett'].includes(farbeName)) {
+          return '#ffffff'; // Weiße Schrift für dunkle Farben
+        } else if (['gelb', 'weiß', 'weiss', 'hellblau', 'hellrot', 'hellgrün', 'hellgrau', 'lime', 'cyan', 'aqua', 'silver'].includes(farbeName)) {
+          return '#000000'; // Schwarze Schrift für helle Farben
+        } else {
+          // Fallback: Berechne Helligkeit für unbekannte Farben
+          const r = parseInt(hexColor.slice(1, 3), 16);
+          const g = parseInt(hexColor.slice(3, 5), 16);
+          const b = parseInt(hexColor.slice(5, 7), 16);
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+          
+          return brightness > 128 ? '#000000' : '#ffffff';
+        }
+      }
+      
+      // Fallback für belegte Ports ohne Kabelfarbe (Standard grün)
+      return '#ffffff'; // Weiße Schrift auf grünem Hintergrund
+    };
+
     return (
-      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: '3px', width: '100%' }}>
+      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: exportMode ? '2px' : '3px', width: '100%' }}>
         {ports.map((port, index) => {
           const isQSFP = port.portTyp === 'QSFP' || port.portTyp === 'QSFP28';
           const isSFP = port.portTyp === 'SFP' || port.portTyp === 'SFP+';
           const isRJ45 = port.portTyp === 'RJ45';
           
-          const portSize = isQSFP ? '48px' : '36px';  // Doppelte Größe
-          const portColor = port.belegt ? '#4caf50' : (darkMode ? theme.palette.grey[700] : '#f5f5f5');
+          const portSize = exportMode 
+            ? (isQSFP ? '28px' : '22px') // Etwas größere Ports für bessere Lesbarkeit im Export
+            : (isQSFP ? '48px' : '36px'); // Normale Größe für Anzeige
+          const portColor = getPortColor(port);
           const borderColor = isRJ45 ? '#4caf50' : isSFP ? '#ff9800' : '#9c27b0';
-          const shape = isSFP ? '50%' : '6px';  // Auch border-radius etwas größer
+          const shape = isSFP ? '50%' : '6px';
           
           // Port-Nummer formatieren - für Stack-Switches im Format 1:01, 2:01, etc.
           const portDisplayText = istInStack && stackInfo?.stackNummer 
@@ -320,6 +444,9 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
             if (verbindungsDetails.verbindung.kabeltyp) {
               tooltipText += `\nKabel: ${verbindungsDetails.verbindung.kabeltyp}`;
             }
+            if (verbindungsDetails.verbindung.kabel_farbe) {
+              tooltipText += `\nKabel-Farbe: ${verbindungsDetails.verbindung.kabel_farbe}`;
+            }
             tooltipText += `\n(Klicken für Details)`;
           }
           
@@ -343,34 +470,36 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '12px',  // Größere Schrift für bessere Lesbarkeit
+                  fontSize: exportMode ? '9px' : '12px',
                   fontWeight: 'bold',
-                  color: port.belegt ? '#fff' : (darkMode ? theme.palette.text.primary : '#666'),
-                  cursor: port.belegt ? 'pointer' : 'default',
-                  '&:hover': {
+                  color: getPortTextColor(port),
+                  cursor: port.belegt && !exportMode ? 'pointer' : 'default',
+                  '&:hover': exportMode ? {} : {
                     transform: 'scale(1.1)',
                     zIndex: 1,
                     boxShadow: port.belegt ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
                   }
                 }}
                 onClick={(e) => {
-                  e.stopPropagation(); // Verhindere, dass der Geräte-Dialog geöffnet wird
-                  if (port.belegt) {
-                    oeffnePortDetails(geraet, port);
+                  if (!exportMode) {
+                    e.stopPropagation(); // Verhindere, dass der Geräte-Dialog geöffnet wird
+                    if (port.belegt) {
+                      oeffnePortDetails(geraet, port);
+                    }
                   }
                 }}
               >
                 <Box sx={{ 
                   textAlign: 'center',
                   lineHeight: 1.2,
-                  fontSize: '10px',  // Kleinere Schrift für bessere Platznutzung
+                  fontSize: exportMode ? '8px' : '10px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   maxWidth: '100%',
                 }}>
                   {portDisplayText}
-                  {port.label && (
+                  {port.label && !exportMode && (
                     <div style={{ fontSize: '8px', opacity: 0.8 }}>
                       ({port.label})
                     </div>
@@ -402,7 +531,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
     }, {} as Record<number, RackGeraet[]>);
 
     const belegteHUs = Object.keys(geraeteNachHU).map(Number).sort((a, b) => a - b);
-    const huHoehe = 110; // Noch größere HU-Höhe für die doppelt so großen Ports
+    const huHoehe = exportMode ? 80 : 110; // Angepasste HU-Höhe für Export mit größeren Ports
 
     // Dynamische Grid-Größe basierend auf Anzahl der Racks
     const gridSize = gesamtAnzahlRacks === 1 ? 
@@ -411,16 +540,24 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
 
     return (
       <Grid item xs={gridSize.xs} md={gridSize.md} lg={gridSize.lg} key={rackName}>
-        <Paper elevation={3} sx={{ p: 2, height: 'fit-content' }}>
-          <Typography variant="h6" gutterBottom sx={{ textAlign: 'center' }}>
+        <Paper elevation={exportMode ? 1 : 3} sx={{ 
+          p: 2, 
+          height: 'fit-content',
+          bgcolor: exportMode ? '#ffffff' : 'inherit',
+          color: exportMode ? '#000000' : 'inherit'
+        }}>
+          <Typography variant="h6" gutterBottom sx={{ 
+            textAlign: 'center',
+            color: exportMode ? '#000000' : 'inherit'
+          }}>
             {rackName}
           </Typography>
           <Divider sx={{ mb: 2 }} />
           
           <Box sx={{ 
-            border: `2px solid ${darkMode ? theme.palette.grey[600] : '#424242'}`,
+            border: `2px solid ${exportMode ? '#424242' : (darkMode ? theme.palette.grey[600] : '#424242')}`,
             borderRadius: 1,
-            bgcolor: darkMode ? theme.palette.grey[900] : '#f8f9fa',
+            bgcolor: exportMode ? '#ffffff' : (darkMode ? theme.palette.grey[900] : '#f8f9fa'),
             p: 2,
             pl: 5, // Mehr Platz links für die HU-Markierungen
             position: 'relative',
@@ -451,11 +588,11 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '16px',  // Größere HU-Nummern
+                      fontSize: exportMode ? '12px' : '16px',
                       fontWeight: 'bold',
-                      color: darkMode ? theme.palette.text.primary : '#666',
-                      bgcolor: darkMode ? theme.palette.background.paper : '#fff',
-                      border: `1px solid ${darkMode ? theme.palette.divider : '#ddd'}`,
+                      color: exportMode ? '#000000' : (darkMode ? theme.palette.text.primary : '#666'),
+                      bgcolor: exportMode ? '#ffffff' : (darkMode ? theme.palette.background.paper : '#fff'),
+                      border: `1px solid ${exportMode ? '#ddd' : (darkMode ? theme.palette.divider : '#ddd')}`,
                       borderRadius: 1,
                       zIndex: 1,
                     }}
@@ -481,32 +618,35 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                           sx={{
                             width: breiteProGeraet,
                             height: huHoehe,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            '&:hover': {
+                            cursor: exportMode ? 'default' : 'pointer',
+                            transition: exportMode ? 'none' : 'all 0.2s',
+                            '&:hover': exportMode ? {} : {
                               transform: 'scale(1.02)',
                               zIndex: 10,
                               boxShadow: 3,
                             },
                             display: 'flex',
                             flexDirection: 'column',
-                            bgcolor: getGeraetColor(geraet.geraetetyp),
-                            color: 'white',
-                            border: anzahlGeraete > 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
+                                                bgcolor: exportMode ? '#ffffff' : (darkMode ? getGeraetColor(geraet.geraetetyp) : '#ffffff'),
+                    color: exportMode ? '#000000' : (darkMode ? 'white' : 'inherit'),
+                            border: exportMode 
+                              ? `2px solid ${getThemeColor(getGeraetColor(geraet.geraetetyp))}`
+                              : (anzahlGeraete > 1 ? '1px solid rgba(255,255,255,0.3)' : 'none'),
                           }}
-                          onClick={() => oeffneDetails(geraet)}
+                          onClick={exportMode ? undefined : () => oeffneDetails(geraet)}
                         >
                         <CardContent sx={{ 
-                          p: '4px 8px !important',
+                          p: exportMode ? '2px 4px !important' : '4px 8px !important',
                           display: 'flex',
                           flexDirection: 'column',
                           width: '100%',
                           height: '100%',
-                          justifyContent: 'space-between',
+                          justifyContent: 'flex-start',
+                          overflow: 'visible',
                         }}>
                           {/* Geräte-Info */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <Box sx={{ fontSize: '20px', mr: 1, color: 'white' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: exportMode ? 0.5 : 1 }}>
+                            <Box sx={{ fontSize: exportMode ? '16px' : '20px', mr: 1, color: exportMode ? '#000000' : (darkMode ? 'white' : 'inherit') }}>
                               {getGeraetIcon(geraet.geraetetyp)}
                             </Box>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -514,7 +654,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                                 variant="caption" 
                                 sx={{ 
                                   fontWeight: 'bold',
-                                  fontSize: '14px',  // Größerer Text für bessere Lesbarkeit
+                                  fontSize: exportMode ? '10px' : '14px',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
@@ -523,49 +663,53 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                               >
                                 {istInStack && stackInfo?.stackName ? stackInfo.stackName : geraet.name}
                               </Typography>
-                              <Typography 
-                                variant="caption" 
-                                sx={{ 
-                                  fontSize: '12px',  // Größerer Text für bessere Lesbarkeit
-                                  opacity: 0.8,
-                                  display: 'block',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {geraet.modell}
-                              </Typography>
+                              {!exportMode && (
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    fontSize: '12px',
+                                    opacity: 0.8,
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {geraet.modell}
+                                </Typography>
+                              )}
                             </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexDirection: 'column' }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {anzahlGeraete > 1 && (
-                                  <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                      fontSize: '11px',  // Größerer Text für bessere Lesbarkeit
-                                      opacity: 0.8,
-                                      fontWeight: 'bold',
-                                    }}
-                                  >
-                                    HA
-                                  </Typography>
-                                )}
-                                {istInStack && (
-                                  <Typography 
-                                    variant="caption" 
-                                    sx={{ 
-                                      fontSize: '11px',
-                                      opacity: 0.8,
-                                      fontWeight: 'bold',
-                                      color: '#90caf9', // Hellblau für Stack
-                                    }}
-                                  >
-                                    Stack
-                                  </Typography>
-                                )}
-                              </Box>
-                              <Typography variant="caption" sx={{ fontSize: '12px', opacity: 0.8, fontWeight: 'bold' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexDirection: exportMode ? 'row' : 'column' }}>
+                              {!exportMode && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  {anzahlGeraete > 1 && (
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        fontSize: '11px',
+                                        opacity: 0.8,
+                                        fontWeight: 'bold',
+                                      }}
+                                    >
+                                      HA
+                                    </Typography>
+                                  )}
+                                  {istInStack && (
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        fontSize: '11px',
+                                        opacity: 0.8,
+                                        fontWeight: 'bold',
+                                        color: '#90caf9', // Hellblau für Stack
+                                      }}
+                                    >
+                                      Stack
+                                    </Typography>
+                                  )}
+                                </Box>
+                              )}
+                              <Typography variant="caption" sx={{ fontSize: exportMode ? '9px' : '12px', opacity: 0.8, fontWeight: 'bold' }}>
                                 {geraet.belegteports?.filter(p => p.belegt).length || 0}/{geraet.anzahlNetzwerkports}
                               </Typography>
                             </Box>
@@ -585,7 +729,12 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
             })}
           </Box>
           
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+          <Typography variant="caption" sx={{ 
+            mt: 1, 
+            display: 'block', 
+            textAlign: 'center',
+            color: exportMode ? '#666666' : 'text.secondary'
+          }}>
             {rackGeraete.length} Geräte • {belegteHUs.length} belegte HUs
           </Typography>
         </Paper>
@@ -635,12 +784,25 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
 
   if (Object.keys(geraeteNachRack).length === 0) {
     return (
-      <Paper elevation={1} sx={{ p: 3, textAlign: 'center' }}>
-        <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-        <Typography variant="h6" color="text.secondary">
+      <Paper elevation={1} sx={{ 
+        p: 3, 
+        textAlign: 'center',
+        bgcolor: exportMode ? '#ffffff' : 'inherit',
+        color: exportMode ? '#000000' : 'inherit'
+      }}>
+        <ComputerIcon sx={{ 
+          fontSize: 48, 
+          color: exportMode ? '#666666' : 'text.secondary', 
+          mb: 2 
+        }} />
+        <Typography variant="h6" sx={{
+          color: exportMode ? '#000000' : 'text.secondary'
+        }}>
           Keine Rack-Geräte gefunden
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: exportMode ? '#666666' : 'text.secondary'
+        }}>
           Geräte müssen eine Rack-Position haben, um hier angezeigt zu werden.
         </Typography>
       </Paper>
@@ -649,11 +811,23 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
 
   return (
     <>
-      <Paper elevation={2} sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          <ComputerIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Rack-Visualisierung
-        </Typography>
+      <Paper elevation={exportMode ? 1 : 2} sx={{ 
+        p: exportMode ? 0 : 3,
+        bgcolor: exportMode ? '#ffffff' : 'inherit',
+        color: exportMode ? '#000000' : 'inherit'
+      }}>
+        {!exportMode && (
+          <Typography variant="h5" gutterBottom sx={{
+            color: exportMode ? '#000000' : 'inherit'
+          }}>
+            <ComputerIcon sx={{ 
+              mr: 1, 
+              verticalAlign: 'middle',
+              color: exportMode ? '#000000' : 'inherit'
+            }} />
+            Rack-Visualisierung
+          </Typography>
+        )}
         
         <Grid container spacing={3}>
           {Object.entries(geraeteNachRack).map(([rackName, rackGeraete]) =>

@@ -610,6 +610,7 @@ const StandortDetails: React.FC = () => {
                         <TableCell>IP-Adresse</TableCell>
                         <TableCell>MAC-Adresse</TableCell>
                         <TableCell>Ports</TableCell>
+                        <TableCell>Standort/Raum</TableCell>
                         <TableCell>Rack-Position</TableCell>
                       </TableRow>
                     </TableHead>
@@ -638,42 +639,13 @@ const StandortDetails: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             {geraet.anzahlNetzwerkports > 0 ? (
-                              <Box>
-                                <Typography variant="body2">
-                                  {geraet.belegteports?.filter(p => p.belegt).length || 0} / {geraet.anzahlNetzwerkports}
-                                </Typography>
-                                {/* Zeige Labels der belegten Ports */}
-                                {geraet.belegteports?.filter(p => p.belegt && p.label).map((port, index) => (
-                                  <Chip
-                                    key={`${geraet.id}-${port.portNummer}`}
-                                    label={`${port.portNummer} (${port.label})`}
-                                    size="small"
-                                    color="secondary"
-                                    variant="outlined"
-                                    sx={{ 
-                                      m: 0.25,
-                                      fontSize: '0.7rem',
-                                      height: '20px'
-                                    }}
-                                  />
-                                ))}
-                                {/* Zeige Labels aller Ports (auch freie) */}
-                                {geraet.belegteports?.filter(p => !p.belegt && p.label).map((port, index) => (
-                                  <Chip
-                                    key={`${geraet.id}-${port.portNummer}`}
-                                    label={`${port.portNummer} (${port.label})`}
-                                    size="small"
-                                    color="default"
-                                    variant="outlined"
-                                    sx={{ 
-                                      m: 0.25,
-                                      fontSize: '0.7rem',
-                                      height: '20px'
-                                    }}
-                                  />
-                                ))}
-                              </Box>
+                              <Typography variant="body2">
+                                {geraet.belegteports?.filter(p => p.belegt).length || 0} / {geraet.anzahlNetzwerkports}
+      </Typography>
                             ) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {geraet.standortDetails || '-'}
                           </TableCell>
                           <TableCell>
                             {geraet.rackPosition?.rack && geraet.rackPosition?.einheit ? 

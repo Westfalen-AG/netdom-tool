@@ -2,8 +2,8 @@
 
 Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur an OnSite-Anlagen der Westfalen AG.
 
-**Version:** 1.2.0  
-**Letztes Update:** Juli 2025  
+**Version:** 1.3.0  
+**Letztes Update:** Januar 2025  
 **Support:** Niklas Terhorst (n.terhorst@westfalen.com oder Teams)
 
 ## 🚀 Funktionen
@@ -19,12 +19,14 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **Changelog**: Vollständige Versionshistorie mit detaillierten Änderungen
 - **Dark/Light Mode**: Benutzerfreundliche Themes für verschiedene Arbeitsumgebungen
 
-### Neue Features in Version 1.2.0
-- **Erweiterte Export-Funktionalität**: Vollständige Standort-Dokumentation mit konfigurierbaren Optionen
-- **Rack-Visualisierung**: Interaktive Darstellung der Geräte-Platzierung im Export
-- **Standort-Details für Geräte**: Spezifische Raum-/Container-Angaben für bessere Lokalisierung
-- **Changelog-Seite**: Strukturierte Übersicht aller Versions-Änderungen
-- **Versionierung**: Anzeige der aktuellen Tool-Version im Footer
+### Neue Features in Version 1.3.0
+- **Kabelfarben-Visualisierung**: Port-Darstellung in Rack-Diagrammen basierend auf tatsächlichen Kabelfarben
+- **Intelligente Kontrastoptimierung**: Automatische Anpassung der Textfarbe für optimale Lesbarkeit
+- **Verbesserte Navigation**: Klickbares Logo (führt zur Standort-Übersicht) und klickbare Versionsanzeige (führt zum Changelog)
+- **Westfalen AG Branding**: Professionelles Export-Design mit Unternehmensfarben und Logo
+- **Erweiterte Verbindungsdetails**: Vollständige Anzeige aller Kabelinformationen (Farbe, Kategorie, Länge, Labels)
+- **Optimierte Rack-Informationen**: Verbesserte Darstellung von Raum- und Rack-Positionen in Übersichten
+- **Universelle Lesbarkeit**: Einheitliche Darstellung in Light-Mode, Dark-Mode und Export-Modus
 
 ### Unterstützte Gerätetypen
 - **Switches und Netzwerk-Hardware**: Managed Switches, Stackable Switches
