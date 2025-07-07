@@ -45,7 +45,7 @@ import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
 
 const DRAWER_WIDTH = 240;
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 // Westfalen AG Theme-Konfiguration
 const getWestfalenTheme = (darkMode: boolean) => createTheme({

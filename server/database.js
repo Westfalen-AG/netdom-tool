@@ -315,6 +315,68 @@ class Database {
         console.log('✓ Spalte standort_details hinzugefügt');
       }
     });
+
+    // Migration 7: Bemerkungen-Spalte zur geraete-Tabelle hinzufügen
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN bemerkungen TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration bemerkungen:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte bemerkungen hinzugefügt');
+      }
+    });
+
+    // Migration 8: Router öffentliche IP Felder hinzufügen
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN hat_oeffentliche_ip BOOLEAN DEFAULT 0
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration hat_oeffentliche_ip:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte hat_oeffentliche_ip hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN oeffentliche_ip_typ TEXT CHECK(oeffentliche_ip_typ IN ('dynamisch', 'statisch'))
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration oeffentliche_ip_typ:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte oeffentliche_ip_typ hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN dyndns_aktiv BOOLEAN DEFAULT 0
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration dyndns_aktiv:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte dyndns_aktiv hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN dyndns_adresse TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration dyndns_adresse:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte dyndns_adresse hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN statische_oeffentliche_ip TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration statische_oeffentliche_ip:', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte statische_oeffentliche_ip hinzugefügt');
+      }
+    });
     
     console.log('Migrationen abgeschlossen.');
   }

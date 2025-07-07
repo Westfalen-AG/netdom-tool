@@ -344,6 +344,7 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
         modell: geraetRow.modell,
         seriennummer: geraetRow.seriennummer,
         standortDetails: geraetRow.standort_details,
+        bemerkungen: geraetRow.bemerkungen,
         ipKonfiguration: {
           typ: geraetRow.ip_typ || 'dhcp',
           ipAdresse: geraetRow.ip_adresse,
@@ -351,6 +352,12 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
         },
         macAdresse: geraetRow.mac_adresse,
         anzahlNetzwerkports: geraetRow.anzahl_netzwerkports || 0,
+        // Router-spezifische öffentliche IP-Konfiguration
+        hatOeffentlicheIp: Boolean(geraetRow.hat_oeffentliche_ip),
+        oeffentlicheIpTyp: geraetRow.oeffentliche_ip_typ,
+        dyndnsAktiv: Boolean(geraetRow.dyndns_aktiv),
+        dyndnsAdresse: geraetRow.dyndns_adresse,
+        statischeOeffentlicheIp: geraetRow.statische_oeffentliche_ip,
         position: {
           x: geraetRow.position_x,
           y: geraetRow.position_y
@@ -390,12 +397,18 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       modell,
       seriennummer,
       standortDetails,
+      bemerkungen,
       ipKonfiguration,
       macAdresse,
       anzahlNetzwerkports,
       position,
       rackPosition,
-      belegteports
+      belegteports,
+      hatOeffentlicheIp,
+      oeffentlicheIpTyp,
+      dyndnsAktiv,
+      dyndnsAdresse,
+      statischeOeffentlicheIp
     } = req.body;
 
     const geraetId = uuidv4();
@@ -405,10 +418,11 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
     // Gerät erstellen
     await db.run(`
       INSERT INTO geraete (
-        id, standort_id, name, geraetetyp, modell, seriennummer, standort_details,
+        id, standort_id, name, geraetetyp, modell, seriennummer, standort_details, bemerkungen,
         ip_typ, ip_adresse, netzwerkbereich, mac_adresse, anzahl_netzwerkports,
-        position_x, position_y, rack_name, rack_einheit
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        position_x, position_y, rack_name, rack_einheit,
+        hat_oeffentliche_ip, oeffentliche_ip_typ, dyndns_aktiv, dyndns_adresse, statische_oeffentliche_ip
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       geraetId,
       req.params.standortId,
@@ -417,6 +431,7 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       modell,
       seriennummer || null,
       standortDetails || null,
+      bemerkungen || null,
       ipKonfiguration?.typ || 'dhcp',
       ipKonfiguration?.ipAdresse || null,
       ipKonfiguration?.netzwerkbereich || null,
@@ -425,7 +440,12 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       position?.x || null,
       position?.y || null,
       rackPosition?.rack || null,
-      rackPosition?.einheit || null
+      rackPosition?.einheit || null,
+      hatOeffentlicheIp ? 1 : 0,
+      oeffentlicheIpTyp || null,
+      dyndnsAktiv ? 1 : 0,
+      dyndnsAdresse || null,
+      statischeOeffentlicheIp || null
     ]);
 
     // Port-Belegungen mit Konfiguration initialisieren
@@ -474,12 +494,18 @@ app.put('/api/geraete/:id', async (req, res) => {
       modell,
       seriennummer,
       standortDetails,
+      bemerkungen,
       ipKonfiguration,
       macAdresse,
       anzahlNetzwerkports,
       position,
       rackPosition,
-      belegteports
+      belegteports,
+      hatOeffentlicheIp,
+      oeffentlicheIpTyp,
+      dyndnsAktiv,
+      dyndnsAdresse,
+      statischeOeffentlicheIp
     } = req.body;
 
     const geraetId = req.params.id;
@@ -496,9 +522,10 @@ app.put('/api/geraete/:id', async (req, res) => {
     // Gerät aktualisieren
     await db.run(`
       UPDATE geraete SET 
-        name = ?, geraetetyp = ?, modell = ?, seriennummer = ?, standort_details = ?,
+        name = ?, geraetetyp = ?, modell = ?, seriennummer = ?, standort_details = ?, bemerkungen = ?,
         ip_typ = ?, ip_adresse = ?, netzwerkbereich = ?, mac_adresse = ?, anzahl_netzwerkports = ?,
-        position_x = ?, position_y = ?, rack_name = ?, rack_einheit = ?
+        position_x = ?, position_y = ?, rack_name = ?, rack_einheit = ?,
+        hat_oeffentliche_ip = ?, oeffentliche_ip_typ = ?, dyndns_aktiv = ?, dyndns_adresse = ?, statische_oeffentliche_ip = ?
       WHERE id = ?
     `, [
       name,
@@ -506,6 +533,7 @@ app.put('/api/geraete/:id', async (req, res) => {
       modell,
       seriennummer || null,
       standortDetails || null,
+      bemerkungen || null,
       ipKonfiguration?.typ || 'dhcp',
       ipKonfiguration?.ipAdresse || null,
       ipKonfiguration?.netzwerkbereich || null,
@@ -515,6 +543,11 @@ app.put('/api/geraete/:id', async (req, res) => {
       position?.y || altesGeraet.position_y,
       rackPosition?.rack || null,
       rackPosition?.einheit || null,
+      hatOeffentlicheIp ? 1 : 0,
+      oeffentlicheIpTyp || null,
+      dyndnsAktiv ? 1 : 0,
+      dyndnsAdresse || null,
+      statischeOeffentlicheIp || null,
       geraetId
     ]);
 

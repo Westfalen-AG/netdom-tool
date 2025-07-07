@@ -512,9 +512,23 @@ const StandortDetails: React.FC = () => {
                         {router.name} ({router.modell})
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {router.ipKonfiguration.ipAdresse || 
-                         (router.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
+                        LAN: {router.ipKonfiguration.ipAdresse || 
+                             (router.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
                       </Typography>
+                      {/* Öffentliche IP-Informationen anzeigen */}
+                      {router.hatOeffentlicheIp && (
+                        <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
+                          {router.oeffentlicheIpTyp === 'statisch' && router.statischeOeffentlicheIp ? (
+                            `WAN: ${router.statischeOeffentlicheIp} (statisch)`
+                          ) : router.oeffentlicheIpTyp === 'dynamisch' && router.dyndnsAktiv && router.dyndnsAdresse ? (
+                            `WAN: ${router.dyndnsAdresse} (DynDNS)`
+                          ) : router.oeffentlicheIpTyp === 'dynamisch' ? (
+                            'WAN: Dynamische IP'
+                          ) : (
+                            'WAN: Öffentliche IP verfügbar'
+                          )}
+                        </Typography>
+                      )}
                     </Box>
                   ))}
                 </Box>
@@ -608,6 +622,7 @@ const StandortDetails: React.FC = () => {
                         <TableCell>Name</TableCell>
                         <TableCell>Modell</TableCell>
                         <TableCell>IP-Adresse</TableCell>
+                        {typ === 'Router' && <TableCell>Öffentliche IP</TableCell>}
                         <TableCell>MAC-Adresse</TableCell>
                         <TableCell>Ports</TableCell>
                         <TableCell>Standort/Raum</TableCell>
@@ -632,6 +647,33 @@ const StandortDetails: React.FC = () => {
                             {geraet.ipKonfiguration.ipAdresse || 
                              (geraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : '-')}
                           </TableCell>
+                          {typ === 'Router' && (
+                            <TableCell>
+                              {geraet.hatOeffentlicheIp ? (
+                                geraet.oeffentlicheIpTyp === 'statisch' && geraet.statischeOeffentlicheIp ? (
+                                  <Typography variant="body2" color="primary">
+                                    {geraet.statischeOeffentlicheIp} (statisch)
+                                  </Typography>
+                                ) : geraet.oeffentlicheIpTyp === 'dynamisch' && geraet.dyndnsAktiv && geraet.dyndnsAdresse ? (
+                                  <Typography variant="body2" color="primary">
+                                    {geraet.dyndnsAdresse} (DynDNS)
+                                  </Typography>
+                                ) : geraet.oeffentlicheIpTyp === 'dynamisch' ? (
+                                  <Typography variant="body2" color="text.secondary">
+                                    Dynamisch
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="body2" color="text.secondary">
+                                    Verfügbar
+                                  </Typography>
+                                )
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  -
+                                </Typography>
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell>
                             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                               {geraet.macAdresse || '-'}

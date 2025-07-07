@@ -69,6 +69,7 @@ const GeraeteVerwaltung: React.FC = () => {
     modell: '',
     seriennummer: '',
     standortDetails: '',
+    bemerkungen: '',
     ipKonfiguration: {
       typ: 'dhcp' as 'dhcp' | 'statisch',
       ipAdresse: '',
@@ -81,6 +82,12 @@ const GeraeteVerwaltung: React.FC = () => {
       rack: '',
       einheit: 0,
     },
+    // Router-spezifische öffentliche IP-Konfiguration
+    hatOeffentlicheIp: false,
+    oeffentlicheIpTyp: 'dynamisch' as 'dynamisch' | 'statisch',
+    dyndnsAktiv: false,
+    dyndnsAdresse: '',
+    statischeOeffentlicheIp: '',
   });
 
   // Daten laden
@@ -201,6 +208,7 @@ const GeraeteVerwaltung: React.FC = () => {
       modell: '',
       seriennummer: '',
       standortDetails: '',
+      bemerkungen: '',
       ipKonfiguration: {
         typ: 'dhcp',
         ipAdresse: '',
@@ -213,6 +221,12 @@ const GeraeteVerwaltung: React.FC = () => {
         rack: '',
         einheit: 0,
       },
+      // Router-spezifische öffentliche IP-Konfiguration
+      hatOeffentlicheIp: false,
+      oeffentlicheIpTyp: 'dynamisch',
+      dyndnsAktiv: false,
+      dyndnsAdresse: '',
+      statischeOeffentlicheIp: '',
     });
   };
 
@@ -630,7 +644,22 @@ const GeraeteVerwaltung: React.FC = () => {
                       
                       {geraet.ipKonfiguration?.ipAdresse && (
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                          <strong>IP:</strong> {geraet.ipKonfiguration.ipAdresse}
+                          <strong>LAN IP:</strong> {geraet.ipKonfiguration.ipAdresse}
+                        </Typography>
+                      )}
+                      
+                      {/* Router öffentliche IP anzeigen */}
+                      {geraet.geraetetyp === 'Router' && geraet.hatOeffentlicheIp && (
+                        <Typography variant="body2" color="primary" gutterBottom sx={{ fontWeight: 'medium' }}>
+                          <strong>WAN:</strong> {
+                            geraet.oeffentlicheIpTyp === 'statisch' && geraet.statischeOeffentlicheIp ? 
+                              geraet.statischeOeffentlicheIp :
+                            geraet.oeffentlicheIpTyp === 'dynamisch' && geraet.dyndnsAktiv && geraet.dyndnsAdresse ? 
+                              geraet.dyndnsAdresse :
+                            geraet.oeffentlicheIpTyp === 'dynamisch' ? 
+                              'Dynamisch' : 
+                              'Verfügbar'
+                          }
                         </Typography>
                       )}
                       
@@ -873,6 +902,117 @@ const GeraeteVerwaltung: React.FC = () => {
                 />
               </Grid>
 
+              {/* Bemerkungen */}
+              <Grid item xs={12}>
+                <TextField
+                  label="Bemerkungen"
+                  fullWidth
+                  variant="outlined"
+                  multiline
+                  rows={3}
+                  placeholder="Zusätzliche Informationen über das Gerät..."
+                  value={neuGeraet.bemerkungen}
+                  onChange={(e) => setNeuGeraet({ ...neuGeraet, bemerkungen: e.target.value })}
+                />
+              </Grid>
+
+              {/* Router-spezifische öffentliche IP-Konfiguration */}
+              {neuGeraet.geraetetyp === 'Router' && (
+                <>
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                      Öffentliche IP-Konfiguration (nur Router)
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <input
+                          type="checkbox"
+                          checked={neuGeraet.hatOeffentlicheIp}
+                          onChange={(e) => setNeuGeraet({ ...neuGeraet, hatOeffentlicheIp: e.target.checked })}
+                          style={{ 
+                            accentColor: darkMode ? '#90caf9' : '#1976d2',
+                            transform: 'scale(1.2)'
+                          }}
+                        />
+                      }
+                      label="Hat öffentliche IP-Adresse"
+                    />
+                  </Grid>
+
+                  {neuGeraet.hatOeffentlicheIp && (
+                    <>
+                      <Grid item xs={12}>
+                        <FormControl component="fieldset">
+                          <FormLabel component="legend">Öffentliche IP-Typ</FormLabel>
+                          <RadioGroup
+                            row
+                            value={neuGeraet.oeffentlicheIpTyp}
+                            onChange={(e) => setNeuGeraet({
+                              ...neuGeraet,
+                              oeffentlicheIpTyp: e.target.value as 'dynamisch' | 'statisch'
+                            })}
+                          >
+                            <FormControlLabel value="dynamisch" control={<Radio />} label="Dynamische IP" />
+                            <FormControlLabel value="statisch" control={<Radio />} label="Statische IP" />
+                          </RadioGroup>
+                        </FormControl>
+                      </Grid>
+
+                      {neuGeraet.oeffentlicheIpTyp === 'dynamisch' && (
+                        <>
+                          <Grid item xs={12}>
+                            <FormControlLabel
+                              control={
+                                <input
+                                  type="checkbox"
+                                  checked={neuGeraet.dyndnsAktiv}
+                                  onChange={(e) => setNeuGeraet({ ...neuGeraet, dyndnsAktiv: e.target.checked })}
+                                  style={{ 
+                                    accentColor: darkMode ? '#90caf9' : '#1976d2',
+                                    transform: 'scale(1.2)'
+                                  }}
+                                />
+                              }
+                              label="DynDNS verwenden"
+                            />
+                          </Grid>
+
+                          {neuGeraet.dyndnsAktiv && (
+                            <Grid item xs={12}>
+                              <TextField
+                                label="DynDNS-Adresse"
+                                fullWidth
+                                variant="outlined"
+                                placeholder="beispiel.dyndns.org"
+                                value={neuGeraet.dyndnsAdresse}
+                                onChange={(e) => setNeuGeraet({ ...neuGeraet, dyndnsAdresse: e.target.value })}
+                              />
+                            </Grid>
+                          )}
+                        </>
+                      )}
+
+                      {neuGeraet.oeffentlicheIpTyp === 'statisch' && (
+                        <Grid item xs={12}>
+                          <TextField
+                            label="Statische öffentliche IP-Adresse"
+                            fullWidth
+                            variant="outlined"
+                            placeholder="203.0.113.1"
+                            value={neuGeraet.statischeOeffentlicheIp}
+                            onChange={(e) => setNeuGeraet({ ...neuGeraet, statischeOeffentlicheIp: e.target.value })}
+                          />
+                        </Grid>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
               {/* Port-Konfiguration anzeigen wenn Ports vorhanden */}
               {neuGeraet.anzahlNetzwerkports > 0 && (
                 <Grid item xs={12}>
@@ -1006,7 +1146,7 @@ const GeraeteVerwaltung: React.FC = () => {
                     {selectedGeraet.ipKonfiguration.ipAdresse && (
                       <Grid item xs={12} sm={6}>
                         <Typography variant="subtitle2" color="text.secondary">
-                          IP-Adresse
+                          LAN IP-Adresse
                         </Typography>
                         <Typography variant="body1" gutterBottom>
                           {selectedGeraet.ipKonfiguration.ipAdresse}
@@ -1023,6 +1163,58 @@ const GeraeteVerwaltung: React.FC = () => {
                           {selectedGeraet.ipKonfiguration.netzwerkbereich}
                         </Typography>
                       </Grid>
+                    )}
+                    
+                    {/* Router öffentliche IP-Konfiguration */}
+                    {selectedGeraet.geraetetyp === 'Router' && (
+                      <>
+                        <Grid item xs={12}>
+                          <Typography variant="subtitle1" gutterBottom sx={{ mt: 1, fontWeight: 'medium' }}>
+                            Öffentliche IP-Konfiguration
+                          </Typography>
+                        </Grid>
+                        
+                        {selectedGeraet.hatOeffentlicheIp ? (
+                          <>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" color="text.secondary">
+                                WAN IP-Typ
+                              </Typography>
+                              <Typography variant="body1" gutterBottom>
+                                {selectedGeraet.oeffentlicheIpTyp === 'statisch' ? 'Statische IP' : 'Dynamische IP'}
+                              </Typography>
+                            </Grid>
+                            
+                            {selectedGeraet.oeffentlicheIpTyp === 'statisch' && selectedGeraet.statischeOeffentlicheIp && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  Statische WAN IP
+                                </Typography>
+                                <Typography variant="body1" gutterBottom color="primary">
+                                  {selectedGeraet.statischeOeffentlicheIp}
+                                </Typography>
+                              </Grid>
+                            )}
+                            
+                            {selectedGeraet.oeffentlicheIpTyp === 'dynamisch' && selectedGeraet.dyndnsAktiv && selectedGeraet.dyndnsAdresse && (
+                              <Grid item xs={12} sm={6}>
+                                <Typography variant="subtitle2" color="text.secondary">
+                                  DynDNS-Adresse
+                                </Typography>
+                                <Typography variant="body1" gutterBottom color="primary">
+                                  {selectedGeraet.dyndnsAdresse}
+                                </Typography>
+                              </Grid>
+                            )}
+                          </>
+                        ) : (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                              Keine öffentliche IP konfiguriert
+                            </Typography>
+                          </Grid>
+                        )}
+                      </>
                     )}
                   </>
                 )}
@@ -1379,6 +1571,117 @@ const GeraeteVerwaltung: React.FC = () => {
                     inputProps={{ min: 0, max: 48 }}
                   />
                 </Grid>
+
+                {/* Bemerkungen */}
+                <Grid item xs={12}>
+                  <TextField
+                    label="Bemerkungen"
+                    fullWidth
+                    variant="outlined"
+                    multiline
+                    rows={3}
+                    placeholder="Zusätzliche Informationen über das Gerät..."
+                    value={selectedGeraet.bemerkungen || ''}
+                    onChange={(e) => setSelectedGeraet({ ...selectedGeraet, bemerkungen: e.target.value })}
+                  />
+                </Grid>
+
+                {/* Router-spezifische öffentliche IP-Konfiguration */}
+                {selectedGeraet.geraetetyp === 'Router' && (
+                  <>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                        Öffentliche IP-Konfiguration (nur Router)
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                                             <FormControlLabel
+                         control={
+                           <input
+                             type="checkbox"
+                             checked={selectedGeraet.hatOeffentlicheIp || false}
+                             onChange={(e) => setSelectedGeraet({ ...selectedGeraet, hatOeffentlicheIp: e.target.checked })}
+                             style={{ 
+                               accentColor: darkMode ? '#90caf9' : '#1976d2',
+                               transform: 'scale(1.2)'
+                             }}
+                           />
+                         }
+                         label="Hat öffentliche IP-Adresse"
+                       />
+                    </Grid>
+
+                    {selectedGeraet.hatOeffentlicheIp && (
+                      <>
+                        <Grid item xs={12}>
+                          <FormControl component="fieldset">
+                            <FormLabel component="legend">Öffentliche IP-Typ</FormLabel>
+                            <RadioGroup
+                              row
+                              value={selectedGeraet.oeffentlicheIpTyp || 'dynamisch'}
+                              onChange={(e) => setSelectedGeraet({
+                                ...selectedGeraet,
+                                oeffentlicheIpTyp: e.target.value as 'dynamisch' | 'statisch'
+                              })}
+                            >
+                              <FormControlLabel value="dynamisch" control={<Radio />} label="Dynamische IP" />
+                              <FormControlLabel value="statisch" control={<Radio />} label="Statische IP" />
+                            </RadioGroup>
+                          </FormControl>
+                        </Grid>
+
+                        {selectedGeraet.oeffentlicheIpTyp === 'dynamisch' && (
+                          <>
+                            <Grid item xs={12}>
+                                                             <FormControlLabel
+                                 control={
+                                   <input
+                                     type="checkbox"
+                                     checked={selectedGeraet.dyndnsAktiv || false}
+                                     onChange={(e) => setSelectedGeraet({ ...selectedGeraet, dyndnsAktiv: e.target.checked })}
+                                     style={{ 
+                                       accentColor: darkMode ? '#90caf9' : '#1976d2',
+                                       transform: 'scale(1.2)'
+                                     }}
+                                   />
+                                 }
+                                 label="DynDNS verwenden"
+                               />
+                            </Grid>
+
+                            {selectedGeraet.dyndnsAktiv && (
+                              <Grid item xs={12}>
+                                <TextField
+                                  label="DynDNS-Adresse"
+                                  fullWidth
+                                  variant="outlined"
+                                  placeholder="beispiel.dyndns.org"
+                                  value={selectedGeraet.dyndnsAdresse || ''}
+                                  onChange={(e) => setSelectedGeraet({ ...selectedGeraet, dyndnsAdresse: e.target.value })}
+                                />
+                              </Grid>
+                            )}
+                          </>
+                        )}
+
+                        {selectedGeraet.oeffentlicheIpTyp === 'statisch' && (
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Statische öffentliche IP-Adresse"
+                              fullWidth
+                              variant="outlined"
+                              placeholder="203.0.113.1"
+                              value={selectedGeraet.statischeOeffentlicheIp || ''}
+                              onChange={(e) => setSelectedGeraet({ ...selectedGeraet, statischeOeffentlicheIp: e.target.value })}
+                            />
+                          </Grid>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
 
                 {/* Port-Konfiguration anzeigen wenn Ports vorhanden */}
                 {selectedGeraet.anzahlNetzwerkports > 0 && (

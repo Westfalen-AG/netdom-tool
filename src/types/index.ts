@@ -49,6 +49,7 @@ export interface Geraet {
   modell: string;
   seriennummer?: string;
   standortDetails?: string; // Genaue Standortangabe (Raum, Container, etc.)
+  bemerkungen?: string; // Allgemeine Bemerkungen für alle Geräte
   ipKonfiguration: {
     typ: 'dhcp' | 'statisch';
     ipAdresse?: string;
@@ -57,6 +58,14 @@ export interface Geraet {
   macAdresse?: string;
   anzahlNetzwerkports: number;
   belegteports: PortBelegung[];
+  
+  // Router-spezifische öffentliche IP-Konfiguration
+  hatOeffentlicheIp?: boolean;
+  oeffentlicheIpTyp?: 'dynamisch' | 'statisch';
+  dyndnsAktiv?: boolean;
+  dyndnsAdresse?: string;
+  statischeOeffentlicheIp?: string;
+  
   position?: {
     x: number;
     y: number;

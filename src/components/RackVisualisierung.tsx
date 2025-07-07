@@ -682,7 +682,7 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexDirection: exportMode ? 'row' : 'column' }}>
                               {!exportMode && (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                  {anzahlGeraete > 1 && (
+                                  {anzahlGeraete > 1 && geraet.geraetetyp === 'Firewall' && (
                                     <Typography 
                                       variant="caption" 
                                       sx={{ 
@@ -927,9 +927,22 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                         IP-Adresse
                       </Typography>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {selectedPortDetails.quellGeraet.ipKonfiguration.ipAdresse || 
-                         (selectedPortDetails.quellGeraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
+                        LAN: {selectedPortDetails.quellGeraet.ipKonfiguration.ipAdresse || 
+                             (selectedPortDetails.quellGeraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
                       </Typography>
+                      {/* Router öffentliche IP */}
+                      {selectedPortDetails.quellGeraet.geraetetyp === 'Router' && selectedPortDetails.quellGeraet.hatOeffentlicheIp && (
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', mt: 1 }}>
+                          WAN: {selectedPortDetails.quellGeraet.oeffentlicheIpTyp === 'statisch' && selectedPortDetails.quellGeraet.statischeOeffentlicheIp ? 
+                            selectedPortDetails.quellGeraet.statischeOeffentlicheIp :
+                          selectedPortDetails.quellGeraet.oeffentlicheIpTyp === 'dynamisch' && selectedPortDetails.quellGeraet.dyndnsAktiv && selectedPortDetails.quellGeraet.dyndnsAdresse ? 
+                            selectedPortDetails.quellGeraet.dyndnsAdresse :
+                          selectedPortDetails.quellGeraet.oeffentlicheIpTyp === 'dynamisch' ? 
+                            'Dynamisch' : 
+                            'Verfügbar'
+                          }
+                        </Typography>
+                      )}
                     </Box>
                     
                     {selectedPortDetails.quellGeraet.rackPosition && (
@@ -993,9 +1006,22 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                             IP-Adresse
                           </Typography>
                           <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {selectedPortDetails.zielGeraet.ipKonfiguration.ipAdresse || 
-                             (selectedPortDetails.zielGeraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
+                            LAN: {selectedPortDetails.zielGeraet.ipKonfiguration.ipAdresse || 
+                                 (selectedPortDetails.zielGeraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
                           </Typography>
+                          {/* Router öffentliche IP */}
+                          {selectedPortDetails.zielGeraet.geraetetyp === 'Router' && selectedPortDetails.zielGeraet.hatOeffentlicheIp && (
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', mt: 1 }}>
+                              WAN: {selectedPortDetails.zielGeraet.oeffentlicheIpTyp === 'statisch' && selectedPortDetails.zielGeraet.statischeOeffentlicheIp ? 
+                                selectedPortDetails.zielGeraet.statischeOeffentlicheIp :
+                              selectedPortDetails.zielGeraet.oeffentlicheIpTyp === 'dynamisch' && selectedPortDetails.zielGeraet.dyndnsAktiv && selectedPortDetails.zielGeraet.dyndnsAdresse ? 
+                                selectedPortDetails.zielGeraet.dyndnsAdresse :
+                              selectedPortDetails.zielGeraet.oeffentlicheIpTyp === 'dynamisch' ? 
+                                'Dynamisch' : 
+                                'Verfügbar'
+                              }
+                            </Typography>
+                          )}
                         </Box>
                         
                         {selectedPortDetails.zielGeraet.rackPosition && (
@@ -1126,10 +1152,31 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                   <Typography variant="subtitle2" gutterBottom>
                     IP-Konfiguration
                   </Typography>
-                  <Typography variant="body2" sx={{ mb: 2 }}>
-                    {selectedGeraet!.ipKonfiguration.ipAdresse || 
-                     (selectedGeraet!.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    LAN: {selectedGeraet!.ipKonfiguration.ipAdresse || 
+                         (selectedGeraet!.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
                   </Typography>
+                  {/* Router öffentliche IP */}
+                  {selectedGeraet!.geraetetyp === 'Router' && selectedGeraet!.hatOeffentlicheIp && (
+                    <Typography variant="body2" sx={{ color: 'primary.main', mb: 2 }}>
+                      WAN: {selectedGeraet!.oeffentlicheIpTyp === 'statisch' && selectedGeraet!.statischeOeffentlicheIp ? 
+                        selectedGeraet!.statischeOeffentlicheIp :
+                      selectedGeraet!.oeffentlicheIpTyp === 'dynamisch' && selectedGeraet!.dyndnsAktiv && selectedGeraet!.dyndnsAdresse ? 
+                        selectedGeraet!.dyndnsAdresse :
+                      selectedGeraet!.oeffentlicheIpTyp === 'dynamisch' ? 
+                        'Dynamisch' : 
+                        'Verfügbar'
+                      }
+                    </Typography>
+                  )}
+                  {!selectedGeraet!.hatOeffentlicheIp && selectedGeraet!.geraetetyp === 'Router' && (
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, fontStyle: 'italic' }}>
+                      Keine öffentliche IP konfiguriert
+                    </Typography>
+                  )}
+                  {selectedGeraet!.geraetetyp !== 'Router' && (
+                    <Box sx={{ mb: 2 }} />
+                  )}
                   
                   {selectedGeraet!.macAdresse && (
                     <>

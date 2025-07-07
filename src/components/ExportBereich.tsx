@@ -478,6 +478,7 @@ const ExportBereich: React.FC = () => {
                         <TableCell><strong>Typ</strong></TableCell>
                         <TableCell><strong>Modell</strong></TableCell>
                         <TableCell><strong>IP-Konfiguration</strong></TableCell>
+                        <TableCell><strong>Öffentliche IP</strong></TableCell>
                         <TableCell><strong>MAC-Adresse</strong></TableCell>
                         <TableCell><strong>Ports</strong></TableCell>
                         <TableCell><strong>Standort/Raum</strong></TableCell>
@@ -523,6 +524,17 @@ const ExportBereich: React.FC = () => {
                             {geraet.ipKonfiguration.typ === 'statisch' 
                               ? `Statisch: ${geraet.ipKonfiguration.ipAdresse || 'N/A'}` 
                               : 'DHCP'}
+                          </TableCell>
+                          <TableCell>
+                            {geraet.geraetetyp === 'Router' && geraet.hatOeffentlicheIp ? (
+                              geraet.oeffentlicheIpTyp === 'statisch' && geraet.statischeOeffentlicheIp ? 
+                                `${geraet.statischeOeffentlicheIp} (statisch)` :
+                              geraet.oeffentlicheIpTyp === 'dynamisch' && geraet.dyndnsAktiv && geraet.dyndnsAdresse ? 
+                                `${geraet.dyndnsAdresse} (DynDNS)` :
+                              geraet.oeffentlicheIpTyp === 'dynamisch' ? 
+                                'Dynamisch' : 
+                                'Verfügbar'
+                            ) : '-'}
                           </TableCell>
                           <TableCell>{geraet.macAdresse || '-'}</TableCell>
                           <TableCell>{geraet.anzahlNetzwerkports}</TableCell>

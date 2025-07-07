@@ -34,6 +34,65 @@ interface ChangelogEntry {
 const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
+      version: '1.4.0',
+      date: '2025-01-20',
+      type: 'minor',
+      changes: [
+        {
+          type: 'added',
+          description: 'Router-öffentliche IP-Verwaltung mit vollständiger Konfiguration implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Checkbox für "Hat öffentliche IP-Adresse" in Router-Konfiguration'
+        },
+        {
+          type: 'added',
+          description: 'Auswahl zwischen dynamischer und statischer öffentlicher IP'
+        },
+        {
+          type: 'added',
+          description: 'DynDNS-Unterstützung mit Adresseingabe für dynamische IPs'
+        },
+        {
+          type: 'added',
+          description: 'Statische öffentliche IP-Adresseingabe für Router'
+        },
+        {
+          type: 'added',
+          description: 'Bemerkungsfelder für alle Gerätetypen hinzugefügt'
+        },
+        {
+          type: 'added',
+          description: 'WAN/LAN IP-Unterscheidung in allen Übersichten und Visualisierungen'
+        },
+        {
+          type: 'added',
+          description: 'Farbkodierte Anzeige für WAN-IP-Informationen (blau)'
+        },
+        {
+          type: 'changed',
+          description: 'Router-Anzeige in Netzwerkdiagrammen um WAN-IP-Informationen erweitert'
+        },
+        {
+          type: 'changed',
+          description: 'Rack-Visualisierung zeigt nun LAN- und WAN-IP getrennt an'
+        },
+        {
+          type: 'changed',
+          description: 'Export-Funktionen um öffentliche IP-Spalte für Router erweitert'
+        },
+        {
+          type: 'changed',
+          description: 'Geräte-Verwaltung mit verbesserter Router-spezifischer Konfiguration'
+        },
+        {
+          type: 'changed',
+          description: 'Intelligente IP-Anzeige mit Priorität: Statisch > DynDNS > Dynamisch > Verfügbar'
+        }
+      ]
+    },
+    {
       version: '1.3.0',
       date: '2025-01-17',
       type: 'minor',

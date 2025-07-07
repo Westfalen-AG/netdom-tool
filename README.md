@@ -2,7 +2,7 @@
 
 Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur an OnSite-Anlagen der Westfalen AG.
 
-**Version:** 1.3.0  
+**Version:** 1.4.0  
 **Letztes Update:** Januar 2025  
 **Support:** Niklas Terhorst (n.terhorst@westfalen.com oder Teams)
 
@@ -19,7 +19,19 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **Changelog**: Vollständige Versionshistorie mit detaillierten Änderungen
 - **Dark/Light Mode**: Benutzerfreundliche Themes für verschiedene Arbeitsumgebungen
 
-### Neue Features in Version 1.3.0
+### Neue Features in Version 1.4.0
+- **Router-öffentliche IP-Verwaltung**: Vollständige Konfiguration von öffentlichen IP-Adressen für Router
+  - Checkbox für "Hat öffentliche IP-Adresse"
+  - Auswahl zwischen dynamischer und statischer IP
+  - DynDNS-Unterstützung mit Adresseingabe für dynamische IPs
+  - Statische öffentliche IP-Adresseingabe
+- **Erweiterte Bemerkungsfelder**: Allgemeine Kommentarfelder für alle Gerätetypen
+- **WAN/LAN IP-Unterscheidung**: Separate Anzeige von LAN- und WAN-IP-Adressen in allen Übersichten
+- **Farbkodierte IP-Anzeige**: Blaue Hervorhebung für WAN/öffentliche IP-Informationen
+- **Umfassende Router-Visualisierung**: WAN-IP-Anzeige in Netzwerkdiagrammen, Rack-Visualisierungen und Export-Funktionen
+- **Intelligente IP-Anzeige**: Priorisierte Darstellung von statischen IPs, DynDNS-Adressen oder dynamischen IP-Status
+
+### Features aus Version 1.3.0
 - **Kabelfarben-Visualisierung**: Port-Darstellung in Rack-Diagrammen basierend auf tatsächlichen Kabelfarben
 - **Intelligente Kontrastoptimierung**: Automatische Anpassung der Textfarbe für optimale Lesbarkeit
 - **Verbesserte Navigation**: Klickbares Logo (führt zur Standort-Übersicht) und klickbare Versionsanzeige (führt zum Changelog)
@@ -140,6 +152,8 @@ westfalen-network-tool/
    - Anzahl Netzwerkports
    - Rack-Position (optional)
    - Standort-Details (Raum, Container, etc.)
+   - Bemerkungen für zusätzliche Informationen
+   - **Für Router**: Öffentliche IP-Konfiguration (statisch/dynamisch mit DynDNS-Unterstützung)
 
 ### 3. Switch-Stacks konfigurieren
 1. Navigieren Sie zu "Switch-Stack-Verwaltung"
@@ -316,6 +330,20 @@ Bei Fragen, Problemen oder Anregungen wenden Sie sich bitte an:
 ## 📝 Changelog
 
 Eine detaillierte Übersicht aller Änderungen finden Sie in der integrierten Changelog-Seite der Anwendung oder unter dem Menüpunkt "Changelog".
+
+### Version 1.4.0 (Januar 2025)
+- Router-öffentliche IP-Verwaltung mit vollständiger Konfiguration
+- Bemerkungsfelder für alle Gerätetypen
+- WAN/LAN IP-Unterscheidung in allen Übersichten
+- Farbkodierte Anzeige für WAN-IP-Informationen
+- DynDNS-Unterstützung für dynamische Router-IPs
+- Statische öffentliche IP-Konfiguration für Router
+
+### Version 1.3.0 (Januar 2025)
+- Kabelfarben-basierte Port-Visualisierung in Rack-Diagrammen
+- Intelligente Kontrastberechnung für optimale Lesbarkeit
+- Verbesserte Navigation mit klickbaren Elementen
+- Westfalen AG Branding in Export-Funktionen
 
 ### Version 1.2.0 (Juli 2025)
 - Export-Funktion für PNG und PDF mit vollständiger Standort-Dokumentation
