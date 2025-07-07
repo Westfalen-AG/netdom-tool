@@ -866,12 +866,14 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
             fontSize: 11,
             fontWeight: verbindungstyp ? 'bold' : 'normal',
             backgroundColor: verbindungstyp ? 
-              (verbindungstyp === 'HA' ? 'rgba(233, 30, 99, 0.1)' : 'rgba(156, 39, 176, 0.1)') :
+              (verbindungstyp === 'HA' ? 
+                (darkMode ? 'rgba(233, 30, 99, 0.2)' : 'rgba(233, 30, 99, 0.1)') : 
+                (darkMode ? 'rgba(156, 39, 176, 0.2)' : 'rgba(156, 39, 176, 0.1)')) :
               (darkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)'),
             padding: '3px 8px',
             borderRadius: '6px',
             border: `2px solid ${edgeColor}`,
-            color: verbindungstyp ? edgeColor : (darkMode ? '#e2e8f0' : '#333'),
+            color: verbindungstyp ? (darkMode ? '#e2e8f0' : edgeColor) : (darkMode ? '#e2e8f0' : '#333'),
         },
         labelBgStyle: {
             fill: darkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
@@ -1005,11 +1007,11 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
         labelStyle: {
           fontSize: 12,
           fontWeight: 'bold',
-          backgroundColor: 'rgba(156, 39, 176, 0.1)',
+          backgroundColor: darkMode ? 'rgba(156, 39, 176, 0.2)' : 'rgba(156, 39, 176, 0.1)',
           padding: '4px 10px',
           borderRadius: '8px',
           border: '2px solid #9c27b0',
-          color: '#9c27b0',
+          color: darkMode ? '#e2e8f0' : '#9c27b0',
         },
         labelBgStyle: {
           fill: darkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
