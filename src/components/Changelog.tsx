@@ -35,7 +35,7 @@ const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
       version: '1.4.0',
-      date: '2025-01-20',
+      date: '2025-07-07',
       type: 'minor',
       changes: [
         {
@@ -94,7 +94,7 @@ const Changelog: React.FC = () => {
     },
     {
       version: '1.3.0',
-      date: '2025-01-17',
+      date: '2025-07-06',
       type: 'minor',
       changes: [
         {
@@ -133,7 +133,7 @@ const Changelog: React.FC = () => {
     },
     {
       version: '1.2.0',
-      date: '2025-07-15',
+      date: '2025-07-04',
       type: 'minor',
       changes: [
         {
@@ -168,7 +168,7 @@ const Changelog: React.FC = () => {
     },
     {
       version: '1.1.0',
-      date: '2024-12-28',
+      date: '2025-07-03',
       type: 'minor',
       changes: [
         {
@@ -199,7 +199,7 @@ const Changelog: React.FC = () => {
     },
     {
       version: '1.0.0',
-      date: '2024-12-15',
+      date: '2025-07-01',
       type: 'major',
       changes: [
         {
