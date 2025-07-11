@@ -36,16 +36,19 @@ import {
   Dns as ModemIcon,
   History as HistoryIcon,
   Category as CategoryIcon,
+  Storage as RackIcon,
 } from '@mui/icons-material';
 
 // Komponenten importieren
 import StandortUebersicht from './components/StandortUebersicht';
+import StandortVerwaltung from './components/StandortVerwaltung';
 import StandortDetails from './components/StandortDetails';
 import AnsprechpartnerVerwaltung from './components/AnsprechpartnerVerwaltung';
 import GeraeteVerwaltung from './components/GeraeteVerwaltung';
 import GeraetetypVerwaltung from './components/GeraetetypVerwaltung';
 import VerbindungsVerwaltung from './components/VerbindungsVerwaltung';
 import NetzwerkDiagramm from './components/NetzwerkDiagramm';
+import RackAnsicht from './components/RackAnsicht';
 import ExportBereich from './components/ExportBereich';
 import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
@@ -245,6 +248,7 @@ const App: React.FC = () => {
     { text: 'Gerätetypen', icon: <CategoryIcon />, path: '/geraetetypen' },
     { text: 'Verbindungen', icon: <CableIcon />, path: '/verbindungen' },
     { text: 'Switch-Stacks', icon: <ModemIcon />, path: '/stacks' },
+    { text: 'Rack-Ansicht', icon: <RackIcon />, path: '/racks' },
     { text: 'Netzwerkdiagramm', icon: <DiagramIcon />, path: '/diagramm' },
     { text: 'Export', icon: <ExportIcon />, path: '/export' },
     { text: 'Changelog', icon: <HistoryIcon />, path: '/changelog' },
@@ -469,13 +473,14 @@ const App: React.FC = () => {
               <Box sx={{ flexGrow: 1 }}>
                 <Routes>
                   <Route path="/" element={<StandortUebersicht />} />
-                  <Route path="/standorte" element={<StandortUebersicht />} />
+                  <Route path="/standorte" element={<StandortVerwaltung />} />
                   <Route path="/standorte/:name" element={<StandortDetails />} />
                   <Route path="/ansprechpartner" element={<AnsprechpartnerVerwaltung />} />
                   <Route path="/geraete" element={<GeraeteVerwaltung />} />
                   <Route path="/geraetetypen" element={<GeraetetypVerwaltung />} />
                   <Route path="/verbindungen" element={<VerbindungsVerwaltung />} />
                   <Route path="/stacks" element={<SwitchStackVerwaltung />} />
+                  <Route path="/racks" element={<RackAnsicht />} />
                   <Route path="/diagramm" element={<NetzwerkDiagramm />} />
                   <Route path="/diagramm/:standortName" element={<NetzwerkDiagramm />} />
                   <Route path="/export" element={<ExportBereich />} />

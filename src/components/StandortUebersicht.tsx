@@ -10,18 +10,6 @@ import {
   CardActions,
   Box,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormGroup,
-  FormLabel,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
   Alert,
   CircularProgress,
   Table,
@@ -30,23 +18,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Tooltip,
+  Divider,
 } from '@mui/material';
 import {
-  Add as AddIcon,
   LocationOn as LocationIcon,
   Router as RouterIcon,
   Cable as CableIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
-  People as PeopleIcon,
   Business as BusinessIcon,
-  Info as InfoIcon,
   Category as CategoryIcon,
   Language as LanguageIcon,
 } from '@mui/icons-material';
-import { StandortMitStatistiken, Ansprechpartner, Geraet, Verbindung } from '../types';
+import { StandortMitStatistiken, Geraet } from '../types';
 import { StandortContext } from '../App';
 
 const StandortUebersicht: React.FC = () => {
@@ -215,10 +199,10 @@ const StandortUebersicht: React.FC = () => {
           <Grid item xs={12} md={6}>
             <Card elevation={3}>
               <CardContent>
-                <Box display="flex" alignItems="center" mb={2}>
-                  <BusinessIcon color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="h6">Standort-Informationen</Typography>
-                </Box>
+                                 <Box display="flex" alignItems="center" mb={2}>
+                   <BusinessIcon color="primary" sx={{ mr: 1 }} />
+                   <Typography variant="h6">Standort-Informationen</Typography>
+                 </Box>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
                   <strong>Adresse:</strong>
                 </Typography>
