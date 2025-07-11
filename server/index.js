@@ -21,6 +21,217 @@ const createResponse = (success, data = null, message = '', error = null) => ({
   error
 });
 
+// Erweiterte IP-Konfigurationen laden
+const loadIPKonfigurationen = async (geraetId) => {
+  const ipConfigs = await db.all(
+    'SELECT * FROM ip_konfigurationen WHERE geraet_id = ? ORDER BY prioritaet, port_nummer',
+    [geraetId]
+  );
+
+  const result = [];
+  for (let ipConfig of ipConfigs) {
+    // VLAN-Konfiguration laden falls vorhanden
+    const vlanConfig = await db.get(
+      'SELECT * FROM vlan_konfigurationen WHERE ip_konfiguration_id = ?',
+      [ipConfig.id]
+    );
+
+    // DNS-Server JSON parsen
+    let dnsServer = [];
+    if (ipConfig.dns_server) {
+      try {
+        dnsServer = JSON.parse(ipConfig.dns_server);
+      } catch (e) {
+        dnsServer = [];
+      }
+    }
+
+    result.push({
+      id: ipConfig.id,
+      name: ipConfig.name,
+      portNummer: ipConfig.port_nummer,
+      typ: ipConfig.typ,
+      ipAdresse: ipConfig.ip_adresse,
+      netzwerkbereich: ipConfig.netzwerkbereich,
+      gateway: ipConfig.gateway,
+      dnsServer,
+      vlan: vlanConfig ? {
+        vlanId: vlanConfig.vlan_id,
+        vlanName: vlanConfig.vlan_name,
+        tagged: Boolean(vlanConfig.tagged),
+        nacZugewiesen: Boolean(vlanConfig.nac_zugewiesen),
+        bemerkungen: vlanConfig.bemerkungen
+      } : undefined,
+      prioritaet: ipConfig.prioritaet,
+      aktiv: Boolean(ipConfig.aktiv),
+      bemerkungen: ipConfig.bemerkungen
+    });
+  }
+
+  return result;
+};
+
+// Erweiterte öffentliche IP-Konfigurationen laden
+const loadOeffentlicheIPKonfigurationen = async (geraetId) => {
+  const oeffentlicheConfigs = await db.all(
+    'SELECT * FROM oeffentliche_ip_konfigurationen WHERE geraet_id = ?',
+    [geraetId]
+  );
+
+  const result = [];
+  for (let config of oeffentlicheConfigs) {
+    const ipConfig = {
+      id: config.id,
+      typ: config.typ,
+      aktiv: Boolean(config.aktiv),
+      bemerkungen: config.bemerkungen
+    };
+
+    if (config.typ === 'einzelip') {
+      ipConfig.einzelIP = {
+        dynamisch: Boolean(config.einzelip_dynamisch),
+        adresse: config.einzelip_adresse,
+        dyndnsAktiv: Boolean(config.einzelip_dyndns_aktiv),
+        dyndnsAdresse: config.einzelip_dyndns_adresse
+      };
+    } else if (config.typ === 'subnet') {
+      // Nutzbare IPs für Subnet laden
+      const nutzbareIPs = await db.all(
+        'SELECT * FROM oeffentliche_ips WHERE oeffentliche_ip_konfiguration_id = ?',
+        [config.id]
+      );
+
+      ipConfig.subnet = {
+        netzwerkadresse: config.subnet_netzwerkadresse,
+        gateway: config.subnet_gateway,
+        nutzbareIPs: nutzbareIPs.map(ip => ({
+          id: ip.id,
+          ipAdresse: ip.ip_adresse,
+          verwendung: ip.verwendung,
+          belegt: Boolean(ip.belegt),
+          bemerkungen: ip.bemerkungen
+        }))
+      };
+    }
+
+    result.push(ipConfig);
+  }
+
+  return result;
+};
+
+// Erweiterte IP-Konfigurationen speichern
+const saveIPKonfigurationen = async (geraetId, ipKonfigurationen) => {
+  for (let ipConfig of ipKonfigurationen) {
+    const ipConfigId = ipConfig.id || uuidv4();
+    
+    // DNS-Server zu JSON konvertieren
+    const dnsServerJSON = ipConfig.dnsServer && Array.isArray(ipConfig.dnsServer) 
+      ? JSON.stringify(ipConfig.dnsServer) 
+      : null;
+
+    // IP-Konfiguration speichern
+    await db.run(`
+      INSERT OR REPLACE INTO ip_konfigurationen (
+        id, geraet_id, name, port_nummer, typ, ip_adresse, netzwerkbereich, 
+        gateway, dns_server, prioritaet, aktiv, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      ipConfigId,
+      geraetId,
+      ipConfig.name || '',
+      ipConfig.portNummer || 1,
+      ipConfig.typ || 'dhcp',
+      ipConfig.ipAdresse || null,
+      ipConfig.netzwerkbereich || '',
+      ipConfig.gateway || null,
+      dnsServerJSON,
+      ipConfig.prioritaet || 1,
+      ipConfig.aktiv ? 1 : 0,
+      ipConfig.bemerkungen || null
+    ]);
+
+    // VLAN-Konfiguration speichern falls vorhanden
+    if (ipConfig.vlan && ipConfig.vlan.vlanId) {
+      // Existierende VLAN-Konfiguration löschen
+      await db.run(
+        'DELETE FROM vlan_konfigurationen WHERE ip_konfiguration_id = ?',
+        [ipConfigId]
+      );
+
+      // Neue VLAN-Konfiguration speichern
+      await db.run(`
+        INSERT INTO vlan_konfigurationen (
+          id, ip_konfiguration_id, vlan_id, vlan_name, tagged, nac_zugewiesen, bemerkungen
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [
+        uuidv4(),
+        ipConfigId,
+        ipConfig.vlan.vlanId,
+        ipConfig.vlan.vlanName || null,
+        ipConfig.vlan.tagged ? 1 : 0,
+        ipConfig.vlan.nacZugewiesen ? 1 : 0,
+        ipConfig.vlan.bemerkungen || null
+      ]);
+    }
+  }
+};
+
+// Erweiterte öffentliche IP-Konfigurationen speichern
+const saveOeffentlicheIPKonfigurationen = async (geraetId, oeffentlicheIPKonfigurationen) => {
+  for (let ipConfig of oeffentlicheIPKonfigurationen) {
+    const configId = ipConfig.id || uuidv4();
+
+    // Grundlegende öffentliche IP-Konfiguration speichern
+    await db.run(`
+      INSERT OR REPLACE INTO oeffentliche_ip_konfigurationen (
+        id, geraet_id, typ, aktiv, bemerkungen,
+        einzelip_dynamisch, einzelip_adresse, einzelip_dyndns_aktiv, einzelip_dyndns_adresse,
+        subnet_netzwerkadresse, subnet_gateway
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      configId,
+      geraetId,
+      ipConfig.typ,
+      ipConfig.aktiv ? 1 : 0,
+      ipConfig.bemerkungen || null,
+      // Einzelne IP Felder
+      ipConfig.einzelIP?.dynamisch ? 1 : 0,
+      ipConfig.einzelIP?.adresse || null,
+      ipConfig.einzelIP?.dyndnsAktiv ? 1 : 0,
+      ipConfig.einzelIP?.dyndnsAdresse || null,
+      // Subnet Felder
+      ipConfig.subnet?.netzwerkadresse || null,
+      ipConfig.subnet?.gateway || null
+    ]);
+
+    // Nutzbare IPs für Subnet-Konfigurationen speichern
+    if (ipConfig.typ === 'subnet' && ipConfig.subnet?.nutzbareIPs) {
+      // Existierende IPs löschen
+      await db.run(
+        'DELETE FROM oeffentliche_ips WHERE oeffentliche_ip_konfiguration_id = ?',
+        [configId]
+      );
+
+      // Neue IPs speichern
+      for (let ip of ipConfig.subnet.nutzbareIPs) {
+        await db.run(`
+          INSERT INTO oeffentliche_ips (
+            id, oeffentliche_ip_konfiguration_id, ip_adresse, verwendung, belegt, bemerkungen
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          ip.id || uuidv4(),
+          configId,
+          ip.ipAdresse || '',
+          ip.verwendung || null,
+          ip.belegt ? 1 : 0,
+          ip.bemerkungen || null
+        ]);
+      }
+    }
+  }
+};
+
 // =================== STANDORT API ===================
 
 // Alle Standorte abrufen
@@ -45,26 +256,10 @@ app.get('/api/standorte', async (req, res) => {
       ORDER BY s.name
     `);
 
-    // Uplinks für jeden Standort laden und Datenstruktur anpassen
+    // Uplinks automatisch aus Geräten zusammenstellen
     for (let standort of standorte) {
-      const uplinks = await db.all(
-        'SELECT * FROM uplinks WHERE standort_id = ?',
-        [standort.id]
-      );
-      
-      // Konvertiere snake_case zu camelCase
-      standort.verfuegbareUplinks = uplinks.map(uplink => ({
-        id: uplink.id,
-        typ: uplink.typ,
-        anbieter: uplink.anbieter,
-        erwarteteGeschwindigkeit: {
-          download: uplink.download_geschwindigkeit,
-          upload: uplink.upload_geschwindigkeit
-        },
-        oeffentlicheIpVerfuegbar: Boolean(uplink.oeffentliche_ip_verfuegbar),
-        statischeIp: uplink.statische_ip,
-        bemerkungen: uplink.bemerkungen
-      }));
+      // Automatische Uplink-Erkennung - keine separaten Uplinks mehr erforderlich
+      standort.verfuegbareUplinks = [];
       
       // Ansprechpartner Struktur anpassen (für Rückwärtskompatibilität)
       standort.ansprechpartner = {
@@ -88,12 +283,16 @@ app.get('/api/standorte', async (req, res) => {
         email: standort.ansprechpartner_vor_ort_email
       } : null;
       
+      // hostname_prefix zu hostnamePrefix konvertieren
+      standort.hostnamePrefix = standort.hostname_prefix;
+      
       // Alte Properties entfernen
       delete standort.ansprechpartner_name;
       delete standort.ansprechpartner_telefon;
       delete standort.ansprechpartner_email;
       delete standort.ansprechpartner_it_id;
       delete standort.ansprechpartner_vor_ort_id;
+      delete standort.hostname_prefix;
     }
 
     res.json(createResponse(true, standorte));
@@ -115,24 +314,8 @@ app.get('/api/standorte/:id', async (req, res) => {
       return res.status(404).json(createResponse(false, null, 'Standort nicht gefunden'));
     }
 
-    // Uplinks laden und Struktur anpassen
-    const uplinks = await db.all(
-      'SELECT * FROM uplinks WHERE standort_id = ?',
-      [standort.id]
-    );
-    
-    standort.verfuegbareUplinks = uplinks.map(uplink => ({
-      id: uplink.id,
-      typ: uplink.typ,
-      anbieter: uplink.anbieter,
-      erwarteteGeschwindigkeit: {
-        download: uplink.download_geschwindigkeit,
-        upload: uplink.upload_geschwindigkeit
-      },
-      oeffentlicheIpVerfuegbar: Boolean(uplink.oeffentliche_ip_verfuegbar),
-      statischeIp: uplink.statische_ip,
-      bemerkungen: uplink.bemerkungen
-    }));
+    // Automatische Uplink-Erkennung - keine separaten Uplinks mehr erforderlich
+    standort.verfuegbareUplinks = [];
     
     // Ansprechpartner laden
     if (standort.ansprechpartner_it_id) {
@@ -172,12 +355,16 @@ app.get('/api/standorte/:id', async (req, res) => {
       email: standort.ansprechpartner_email
     };
     
+    // hostname_prefix zu hostnamePrefix konvertieren
+    standort.hostnamePrefix = standort.hostname_prefix;
+    
     // Alte Properties entfernen
     delete standort.ansprechpartner_name;
     delete standort.ansprechpartner_telefon;
     delete standort.ansprechpartner_email;
     delete standort.ansprechpartner_it_id;
     delete standort.ansprechpartner_vor_ort_id;
+    delete standort.hostname_prefix;
 
     res.json(createResponse(true, standort));
   } catch (error) {
@@ -195,7 +382,7 @@ app.post('/api/standorte', async (req, res) => {
       ansprechpartner,
       ansprechpartnerITId,
       ansprechpartnerVorOrtId,
-      verfuegbareUplinks = []
+      hostnamePrefix
     } = req.body;
 
     const standortId = uuidv4();
@@ -207,8 +394,8 @@ app.post('/api/standorte', async (req, res) => {
       INSERT INTO standorte (
         id, name, adresse, ansprechpartner_name, 
         ansprechpartner_telefon, ansprechpartner_email,
-        ansprechpartner_it_id, ansprechpartner_vor_ort_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ansprechpartner_it_id, ansprechpartner_vor_ort_id, hostname_prefix
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       standortId,
       name,
@@ -217,28 +404,11 @@ app.post('/api/standorte', async (req, res) => {
       ansprechpartner?.telefon || '',
       ansprechpartner?.email || '',
       ansprechpartnerITId || null,
-      ansprechpartnerVorOrtId || null
+      ansprechpartnerVorOrtId || null,
+      hostnamePrefix || null
     ]);
 
-    // Uplinks erstellen
-    for (const uplink of verfuegbareUplinks) {
-      await db.run(`
-        INSERT INTO uplinks (
-          id, standort_id, typ, anbieter, download_geschwindigkeit,
-          upload_geschwindigkeit, oeffentliche_ip_verfuegbar, statische_ip, bemerkungen
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        uuidv4(),
-        standortId,
-        uplink.typ,
-        uplink.anbieter,
-        uplink.erwarteteGeschwindigkeit?.download || 0,
-        uplink.erwarteteGeschwindigkeit?.upload || 0,
-        uplink.oeffentlicheIpVerfuegbar ? 1 : 0,
-        uplink.statischeIp || null,
-        uplink.bemerkungen || null
-      ]);
-    }
+    // Uplinks werden automatisch aus Router/SD-WAN Geräten erkannt - keine separaten Einträge mehr
 
     await db.commit();
 
@@ -259,7 +429,7 @@ app.put('/api/standorte/:id', async (req, res) => {
       ansprechpartner,
       ansprechpartnerITId,
       ansprechpartnerVorOrtId,
-      verfuegbareUplinks = []
+      hostnamePrefix
     } = req.body;
 
     const standortId = req.params.id;
@@ -271,7 +441,7 @@ app.put('/api/standorte/:id', async (req, res) => {
       UPDATE standorte SET 
         name = ?, adresse = ?, ansprechpartner_name = ?, 
         ansprechpartner_telefon = ?, ansprechpartner_email = ?,
-        ansprechpartner_it_id = ?, ansprechpartner_vor_ort_id = ?
+        ansprechpartner_it_id = ?, ansprechpartner_vor_ort_id = ?, hostname_prefix = ?
       WHERE id = ?
     `, [
       name,
@@ -281,31 +451,11 @@ app.put('/api/standorte/:id', async (req, res) => {
       ansprechpartner?.email || '',
       ansprechpartnerITId || null,
       ansprechpartnerVorOrtId || null,
+      hostnamePrefix || null,
       standortId
     ]);
 
-    // Bestehende Uplinks löschen
-    await db.run('DELETE FROM uplinks WHERE standort_id = ?', [standortId]);
-
-    // Neue Uplinks hinzufügen
-    for (const uplink of verfuegbareUplinks) {
-      await db.run(`
-        INSERT INTO uplinks (
-          id, standort_id, typ, anbieter, download_geschwindigkeit,
-          upload_geschwindigkeit, oeffentliche_ip_verfuegbar, statische_ip, bemerkungen
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        uuidv4(),
-        standortId,
-        uplink.typ,
-        uplink.anbieter,
-        uplink.erwarteteGeschwindigkeit?.download || 0,
-        uplink.erwarteteGeschwindigkeit?.upload || 0,
-        uplink.oeffentlicheIpVerfuegbar ? 1 : 0,
-        uplink.statischeIp || null,
-        uplink.bemerkungen || null
-      ]);
-    }
+    // Uplinks werden automatisch aus Router/SD-WAN Geräten erkannt - keine separaten Einträge mehr
 
     await db.commit();
 
@@ -327,7 +477,7 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
       [req.params.standortId]
     );
 
-    // Port-Belegungen für jedes Gerät laden und Datenstruktur konvertieren
+    // Port-Belegungen und erweiterte IP-Konfigurationen für jedes Gerät laden
     const geraete = [];
     for (let geraetRow of geraeteRows) {
       const ports = await db.all(
@@ -335,29 +485,45 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
         [geraetRow.id]
       );
 
+      // Erweiterte IP-Konfigurationen laden
+      const ipKonfigurationen = await loadIPKonfigurationen(geraetRow.id);
+      
+      // Erweiterte öffentliche IP-Konfigurationen laden
+      const oeffentlicheIPKonfigurationen = await loadOeffentlicheIPKonfigurationen(geraetRow.id);
+
       // Datenbank-Felder zu Frontend-Format konvertieren
       const geraet = {
         id: geraetRow.id,
         standortId: geraetRow.standort_id,
         name: geraetRow.name,
+        hostname: geraetRow.hostname,
         geraetetyp: geraetRow.geraetetyp,
         modell: geraetRow.modell,
         seriennummer: geraetRow.seriennummer,
         standortDetails: geraetRow.standort_details,
         bemerkungen: geraetRow.bemerkungen,
+        
+        // Neue erweiterte IP-Konfigurationen
+        ipKonfigurationen,
+        oeffentlicheIPKonfigurationen,
+        
+        // Legacy-Kompatibilität für alte ipKonfiguration
         ipKonfiguration: {
           typ: geraetRow.ip_typ || 'dhcp',
           ipAdresse: geraetRow.ip_adresse,
           netzwerkbereich: geraetRow.netzwerkbereich
         },
+        
         macAdresse: geraetRow.mac_adresse,
         anzahlNetzwerkports: geraetRow.anzahl_netzwerkports || 0,
-        // Router-spezifische öffentliche IP-Konfiguration
+        
+        // Legacy Router-spezifische öffentliche IP-Konfiguration
         hatOeffentlicheIp: Boolean(geraetRow.hat_oeffentliche_ip),
         oeffentlicheIpTyp: geraetRow.oeffentliche_ip_typ,
         dyndnsAktiv: Boolean(geraetRow.dyndns_aktiv),
         dyndnsAdresse: geraetRow.dyndns_adresse,
         statischeOeffentlicheIp: geraetRow.statische_oeffentliche_ip,
+        
         position: {
           x: geraetRow.position_x,
           y: geraetRow.position_y
@@ -393,12 +559,15 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
   try {
     const {
       name,
+      hostname,
       geraetetyp,
       modell,
       seriennummer,
       standortDetails,
       bemerkungen,
       ipKonfiguration,
+      ipKonfigurationen,
+      oeffentlicheIPKonfigurationen,
       macAdresse,
       anzahlNetzwerkports,
       position,
@@ -418,15 +587,16 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
     // Gerät erstellen
     await db.run(`
       INSERT INTO geraete (
-        id, standort_id, name, geraetetyp, modell, seriennummer, standort_details, bemerkungen,
+        id, standort_id, name, hostname, geraetetyp, modell, seriennummer, standort_details, bemerkungen,
         ip_typ, ip_adresse, netzwerkbereich, mac_adresse, anzahl_netzwerkports,
         position_x, position_y, rack_name, rack_einheit,
         hat_oeffentliche_ip, oeffentliche_ip_typ, dyndns_aktiv, dyndns_adresse, statische_oeffentliche_ip
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       geraetId,
       req.params.standortId,
       name,
+      hostname || null,
       geraetetyp,
       modell,
       seriennummer || null,
@@ -475,6 +645,16 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       }
     }
 
+    // Erweiterte IP-Konfigurationen speichern
+    if (ipKonfigurationen && Array.isArray(ipKonfigurationen)) {
+      await saveIPKonfigurationen(geraetId, ipKonfigurationen);
+    }
+
+    // Erweiterte öffentliche IP-Konfigurationen speichern
+    if (oeffentlicheIPKonfigurationen && Array.isArray(oeffentlicheIPKonfigurationen)) {
+      await saveOeffentlicheIPKonfigurationen(geraetId, oeffentlicheIPKonfigurationen);
+    }
+
     await db.commit();
 
     res.status(201).json(createResponse(true, { id: geraetId }, 'Gerät erfolgreich erstellt'));
@@ -490,12 +670,15 @@ app.put('/api/geraete/:id', async (req, res) => {
   try {
     const {
       name,
+      hostname,
       geraetetyp,
       modell,
       seriennummer,
       standortDetails,
       bemerkungen,
       ipKonfiguration,
+      ipKonfigurationen,
+      oeffentlicheIPKonfigurationen,
       macAdresse,
       anzahlNetzwerkports,
       position,
@@ -522,13 +705,14 @@ app.put('/api/geraete/:id', async (req, res) => {
     // Gerät aktualisieren
     await db.run(`
       UPDATE geraete SET 
-        name = ?, geraetetyp = ?, modell = ?, seriennummer = ?, standort_details = ?, bemerkungen = ?,
+        name = ?, hostname = ?, geraetetyp = ?, modell = ?, seriennummer = ?, standort_details = ?, bemerkungen = ?,
         ip_typ = ?, ip_adresse = ?, netzwerkbereich = ?, mac_adresse = ?, anzahl_netzwerkports = ?,
         position_x = ?, position_y = ?, rack_name = ?, rack_einheit = ?,
         hat_oeffentliche_ip = ?, oeffentliche_ip_typ = ?, dyndns_aktiv = ?, dyndns_adresse = ?, statische_oeffentliche_ip = ?
       WHERE id = ?
     `, [
       name,
+      hostname || null,
       geraetetyp,
       modell,
       seriennummer || null,
@@ -591,12 +775,104 @@ app.put('/api/geraete/:id', async (req, res) => {
       }
     }
 
+    // Erweiterte IP-Konfigurationen aktualisieren
+    if (ipKonfigurationen && Array.isArray(ipKonfigurationen)) {
+      // Alte IP-Konfigurationen löschen
+      await db.run('DELETE FROM ip_konfigurationen WHERE geraet_id = ?', [geraetId]);
+      // Neue IP-Konfigurationen speichern
+      await saveIPKonfigurationen(geraetId, ipKonfigurationen);
+    }
+
+    // Erweiterte öffentliche IP-Konfigurationen aktualisieren
+    if (oeffentlicheIPKonfigurationen && Array.isArray(oeffentlicheIPKonfigurationen)) {
+      // Alte öffentliche IP-Konfigurationen löschen
+      await db.run('DELETE FROM oeffentliche_ip_konfigurationen WHERE geraet_id = ?', [geraetId]);
+      // Neue öffentliche IP-Konfigurationen speichern
+      await saveOeffentlicheIPKonfigurationen(geraetId, oeffentlicheIPKonfigurationen);
+    }
+
     await db.commit();
 
     res.json(createResponse(true, null, 'Gerät erfolgreich aktualisiert'));
   } catch (error) {
     await db.rollback();
     console.error('Fehler beim Aktualisieren des Geräts:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== IP-KONFIGURATION API ===================
+
+// IP-Konfigurationen eines Geräts abrufen
+app.get('/api/geraete/:geraetId/ip-konfigurationen', async (req, res) => {
+  try {
+    const ipKonfigurationen = await loadIPKonfigurationen(req.params.geraetId);
+    res.json(createResponse(true, ipKonfigurationen));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der IP-Konfigurationen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// IP-Konfiguration erstellen/aktualisieren
+app.post('/api/geraete/:geraetId/ip-konfigurationen', async (req, res) => {
+  try {
+    const { ipKonfigurationen } = req.body;
+    const geraetId = req.params.geraetId;
+
+    await db.beginTransaction();
+
+    // Alte IP-Konfigurationen löschen
+    await db.run('DELETE FROM ip_konfigurationen WHERE geraet_id = ?', [geraetId]);
+    
+    // Neue IP-Konfigurationen speichern
+    if (ipKonfigurationen && Array.isArray(ipKonfigurationen)) {
+      await saveIPKonfigurationen(geraetId, ipKonfigurationen);
+    }
+
+    await db.commit();
+
+    res.json(createResponse(true, null, 'IP-Konfigurationen erfolgreich gespeichert'));
+  } catch (error) {
+    await db.rollback();
+    console.error('Fehler beim Speichern der IP-Konfigurationen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Öffentliche IP-Konfigurationen eines Geräts abrufen
+app.get('/api/geraete/:geraetId/oeffentliche-ip-konfigurationen', async (req, res) => {
+  try {
+    const oeffentlicheIPKonfigurationen = await loadOeffentlicheIPKonfigurationen(req.params.geraetId);
+    res.json(createResponse(true, oeffentlicheIPKonfigurationen));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der öffentlichen IP-Konfigurationen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Öffentliche IP-Konfiguration erstellen/aktualisieren
+app.post('/api/geraete/:geraetId/oeffentliche-ip-konfigurationen', async (req, res) => {
+  try {
+    const { oeffentlicheIPKonfigurationen } = req.body;
+    const geraetId = req.params.geraetId;
+
+    await db.beginTransaction();
+
+    // Alte öffentliche IP-Konfigurationen löschen
+    await db.run('DELETE FROM oeffentliche_ip_konfigurationen WHERE geraet_id = ?', [geraetId]);
+    
+    // Neue öffentliche IP-Konfigurationen speichern
+    if (oeffentlicheIPKonfigurationen && Array.isArray(oeffentlicheIPKonfigurationen)) {
+      await saveOeffentlicheIPKonfigurationen(geraetId, oeffentlicheIPKonfigurationen);
+    }
+
+    await db.commit();
+
+    res.json(createResponse(true, null, 'Öffentliche IP-Konfigurationen erfolgreich gespeichert'));
+  } catch (error) {
+    await db.rollback();
+    console.error('Fehler beim Speichern der öffentlichen IP-Konfigurationen:', error);
     res.status(500).json(createResponse(false, null, '', error.message));
   }
 });
@@ -1338,94 +1614,320 @@ app.delete('/api/stacks/:stackId', async (req, res) => {
 
 // =================== DEBUG API ===================
 
-// Debug: Alle Verbindungen in der Datenbank anzeigen
-app.get('/api/debug/verbindungen/:standortId', async (req, res) => {
-  try {
-    console.log('Debug: Lade alle Verbindungen für Standort:', req.params.standortId);
-    
-    const alleVerbindungen = await db.all(`
-      SELECT v.*, 
-             g1.name as quell_geraet_name,
-             g2.name as ziel_geraet_name
-      FROM verbindungen v
-      JOIN geraete g1 ON v.quell_geraet_id = g1.id
-      JOIN geraete g2 ON v.ziel_geraet_id = g2.id
-      WHERE v.standort_id = ?
-      ORDER BY v.erstellt_am DESC
-    `, [req.params.standortId]);
-
-    console.log('Debug: Gefundene Verbindungen:', alleVerbindungen.length);
-    alleVerbindungen.forEach((v, i) => {
-      console.log(`${i+1}. ${v.quell_geraet_name}:${v.quell_port} -> ${v.ziel_geraet_name}:${v.ziel_port} (${v.kabeltyp}) [${v.bemerkungen || 'keine Bemerkung'}]`);
-    });
-
-    res.json(createResponse(true, {
-      anzahl: alleVerbindungen.length,
-      verbindungen: alleVerbindungen
-    }));
-  } catch (error) {
-    console.error('Debug Fehler:', error);
-    res.status(500).json(createResponse(false, null, '', error.message));
-  }
-});
-
-// Debug: Alle Stack-Verbindungen anzeigen
-app.get('/api/debug/stack-verbindungen/:standortId', async (req, res) => {
-  try {
-    console.log('Debug: Lade alle Stack-Verbindungen für Standort:', req.params.standortId);
-    
-    const stackVerbindungen = await db.all(`
-      SELECT sv.*, 
-             s.name as stack_name,
-             g1.name as quell_geraet_name,
-             g2.name as ziel_geraet_name
-      FROM stack_verbindungen sv
-      JOIN switch_stacks s ON sv.stack_id = s.id
-      JOIN geraete g1 ON sv.quell_geraet_id = g1.id
-      JOIN geraete g2 ON sv.ziel_geraet_id = g2.id
-      WHERE s.standort_id = ?
-      ORDER BY s.name, sv.quell_port
-    `, [req.params.standortId]);
-
-    console.log('Debug: Gefundene Stack-Verbindungen:', stackVerbindungen.length);
-    stackVerbindungen.forEach((v, i) => {
-      console.log(`${i+1}. Stack "${v.stack_name}": ${v.quell_geraet_name}:${v.quell_port} -> ${v.ziel_geraet_name}:${v.ziel_port} (${v.verbindungstyp})`);
-    });
-
-    res.json(createResponse(true, {
-      anzahl: stackVerbindungen.length,
-      stackVerbindungen: stackVerbindungen
-    }));
-  } catch (error) {
-    console.error('Debug Fehler:', error);
-    res.status(500).json(createResponse(false, null, '', error.message));
-  }
-});
+// Debug-APIs entfernt - werden nicht mehr benötigt
 
 // =================== UTILITY API ===================
 
 // Verfügbare Gerätetypen abrufen
-app.get('/api/geraetetypen', (req, res) => {
-  const geraetetypen = [
-    'Router',
-    'Switch', 
-    'SD-WAN Gateway',
-    'Firewall',
-    'Access Point',
-    'Kamera',
-    'VOIP-Phone',
-    'Drucker',
-    'AI-Port',
-    'NVR',
-    'Zugangskontrolle',
-    'Serial Server',
-    'HMI',
-    'Server',
-    'Sensor',
-    'Sonstiges'
-  ];
+app.get('/api/geraetetypen', async (req, res) => {
+  try {
+    const geraetetypenRows = await db.all(`
+      SELECT id, name, beschreibung, icon, farbe, hostname_prefix, aktiv 
+      FROM geraetetypen 
+      WHERE aktiv = 1 
+      ORDER BY name
+    `);
 
-  res.json(createResponse(true, geraetetypen));
+    // snake_case zu camelCase konvertieren
+    const geraetetypen = geraetetypenRows.map(row => ({
+      ...row,
+      hostnamePrefix: row.hostname_prefix,
+      hostname_prefix: undefined // altes Feld entfernen
+    }));
+
+    res.json(createResponse(true, geraetetypen));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Gerätetypen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Alle Gerätetypen abrufen (auch inaktive, für Verwaltung)
+app.get('/api/geraetetypen/alle', async (req, res) => {
+  try {
+    const geraetetypenRows = await db.all(`
+      SELECT id, name, beschreibung, icon, farbe, hostname_prefix, aktiv, erstellt_am, aktualisiert_am
+      FROM geraetetypen 
+      ORDER BY name
+    `);
+
+    // snake_case zu camelCase konvertieren
+    const geraetetypen = geraetetypenRows.map(row => ({
+      ...row,
+      hostnamePrefix: row.hostname_prefix,
+      hostname_prefix: undefined // altes Feld entfernen
+    }));
+
+    res.json(createResponse(true, geraetetypen));
+  } catch (error) {
+    console.error('Fehler beim Abrufen aller Gerätetypen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Einzelnen Gerätetyp abrufen
+app.get('/api/geraetetypen/:id', async (req, res) => {
+  try {
+    const geraetetypRow = await db.get(
+      'SELECT * FROM geraetetypen WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (!geraetetypRow) {
+      return res.status(404).json(createResponse(false, null, 'Gerätetyp nicht gefunden'));
+    }
+
+    // snake_case zu camelCase konvertieren
+    const geraetetyp = {
+      ...geraetetypRow,
+      hostnamePrefix: geraetetypRow.hostname_prefix,
+      hostname_prefix: undefined // altes Feld entfernen
+    };
+
+    res.json(createResponse(true, geraetetyp));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Gerätetyps:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Neuen Gerätetyp erstellen
+app.post('/api/geraetetypen', async (req, res) => {
+  try {
+    const { name, beschreibung, icon, farbe, hostnamePrefix } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
+    }
+
+    // Prüfen ob Name bereits existiert
+    const existierend = await db.get('SELECT id FROM geraetetypen WHERE name = ?', [name.trim()]);
+    if (existierend) {
+      return res.status(400).json(createResponse(false, null, 'Gerätetyp mit diesem Namen existiert bereits'));
+    }
+
+    const geraetetypId = uuidv4();
+
+    await db.run(`
+      INSERT INTO geraetetypen (id, name, beschreibung, icon, farbe, hostname_prefix, aktiv)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `, [
+      geraetetypId, 
+      name.trim(), 
+      beschreibung || null, 
+      icon || 'device_unknown', 
+      farbe || '#757575',
+      hostnamePrefix || 'XX'
+    ]);
+
+    res.status(201).json(createResponse(true, { id: geraetetypId }, 'Gerätetyp erfolgreich erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Gerätetyps:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Gerätetyp aktualisieren
+app.put('/api/geraetetypen/:id', async (req, res) => {
+  try {
+    const { name, beschreibung, icon, farbe, hostnamePrefix, aktiv } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
+    }
+
+    const existierend = await db.get('SELECT id FROM geraetetypen WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Gerätetyp nicht gefunden'));
+    }
+
+    // Prüfen ob Name bereits von anderem Gerätetyp verwendet wird
+    const namensKonflikt = await db.get('SELECT id FROM geraetetypen WHERE name = ? AND id != ?', [name.trim(), req.params.id]);
+    if (namensKonflikt) {
+      return res.status(400).json(createResponse(false, null, 'Gerätetyp mit diesem Namen existiert bereits'));
+    }
+
+    await db.run(`
+      UPDATE geraetetypen SET
+        name = ?,
+        beschreibung = ?,
+        icon = ?,
+        farbe = ?,
+        hostname_prefix = ?,
+        aktiv = ?
+      WHERE id = ?
+    `, [
+      name.trim(), 
+      beschreibung || null, 
+      icon || 'device_unknown', 
+      farbe || '#757575',
+      hostnamePrefix || 'XX', 
+      aktiv ? 1 : 0,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Gerätetyp erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Gerätetyps:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Gerätetyp löschen
+app.delete('/api/geraetetypen/:id', async (req, res) => {
+  try {
+    // Prüfen ob Gerätetyp verwendet wird
+    const verwendeteGeraete = await db.all(`
+      SELECT name FROM geraete WHERE geraetetyp = (
+        SELECT name FROM geraetetypen WHERE id = ?
+      )
+    `, [req.params.id]);
+
+    if (verwendeteGeraete.length > 0) {
+      return res.status(400).json(createResponse(false, null, `Gerätetyp wird noch von ${verwendeteGeraete.length} Gerät(en) verwendet`));
+    }
+
+    const result = await db.run('DELETE FROM geraetetypen WHERE id = ?', [req.params.id]);
+    
+    if (result.changes === 0) {
+      return res.status(404).json(createResponse(false, null, 'Gerätetyp nicht gefunden'));
+    }
+
+    res.json(createResponse(true, null, 'Gerätetyp erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Gerätetyps:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Gerätetyp automatisch hinzufügen wenn er nicht existiert
+app.post('/api/geraetetypen/auto-create', async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
+    }
+
+    // Prüfen ob bereits existiert
+    const existierend = await db.get('SELECT id, name FROM geraetetypen WHERE name = ?', [name.trim()]);
+    if (existierend) {
+      return res.json(createResponse(true, existierend, 'Gerätetyp bereits vorhanden'));
+    }
+
+    // Neuen Gerätetyp erstellen
+    const geraetetypId = uuidv4();
+    await db.run(`
+      INSERT INTO geraetetypen (id, name, beschreibung, icon, farbe, hostname_prefix, aktiv)
+      VALUES (?, ?, ?, ?, ?, ?, 1)
+    `, [
+      geraetetypId, 
+      name.trim(), 
+      'Automatisch erstellter Gerätetyp', 
+      'device_unknown', 
+      '#757575',
+      'XX' // Standard-Präfix für neue Gerätetypen
+    ]);
+
+    res.status(201).json(createResponse(true, { id: geraetetypId, name: name.trim() }, 'Gerätetyp automatisch erstellt'));
+  } catch (error) {
+    console.error('Fehler beim automatischen Erstellen des Gerätetyps:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== HOSTNAME-GENERIERUNG API ===================
+
+// Nächste verfügbare Hostname-Nummer finden
+const findNextAvailableNumber = async (standortId, geraetetypName) => {
+  try {
+    // Standort- und Gerätetyp-Präfix abrufen
+    const standort = await db.get('SELECT hostname_prefix FROM standorte WHERE id = ?', [standortId]);
+    const geraetetyp = await db.get('SELECT hostname_prefix FROM geraetetypen WHERE name = ?', [geraetetypName]);
+
+    if (!standort?.hostname_prefix || !geraetetyp?.hostname_prefix) {
+      return null; // Präfixe nicht konfiguriert
+    }
+
+    const baseHostname = `${standort.hostname_prefix}${geraetetyp.hostname_prefix}`;
+
+    // Alle existierenden Hostnames mit diesem Präfix finden
+    const existierendeHostnames = await db.all(`
+      SELECT hostname FROM geraete 
+      WHERE hostname LIKE ? AND hostname IS NOT NULL
+      ORDER BY hostname
+    `, [`${baseHostname}%`]);
+
+    // Verwendete Nummern extrahieren
+    const verwendeteNummern = new Set();
+    for (const row of existierendeHostnames) {
+      const match = row.hostname.match(new RegExp(`^${baseHostname}(\\d{3})$`));
+      if (match) {
+        verwendeteNummern.add(parseInt(match[1], 10));
+      }
+    }
+
+    // Nächste verfügbare Nummer finden (Lücken bevorzugen)
+    for (let num = 1; num <= 999; num++) {
+      if (!verwendeteNummern.has(num)) {
+        const nummer = num.toString().padStart(3, '0');
+        return {
+          hostname: `${baseHostname}${nummer}`,
+          standortPrefix: standort.hostname_prefix,
+          geraetetypPrefix: geraetetyp.hostname_prefix,
+          nummer
+        };
+      }
+    }
+
+    return null; // Alle Nummern belegt
+  } catch (error) {
+    console.error('Fehler beim Finden der nächsten Hostname-Nummer:', error);
+    return null;
+  }
+};
+
+// Hostname generieren
+app.post('/api/hostname/generate', async (req, res) => {
+  try {
+    const { standortId, geraetetypName } = req.body;
+
+    if (!standortId || !geraetetypName) {
+      return res.status(400).json(createResponse(false, null, 'Standort-ID und Gerätetyp sind erforderlich'));
+    }
+
+    const hostnameInfo = await findNextAvailableNumber(standortId, geraetetypName);
+
+    if (!hostnameInfo) {
+      return res.status(400).json(createResponse(false, null, 'Hostname konnte nicht generiert werden. Prüfen Sie die Präfix-Konfiguration oder alle Nummern sind belegt.'));
+    }
+
+    res.json(createResponse(true, hostnameInfo, 'Hostname erfolgreich generiert'));
+  } catch (error) {
+    console.error('Fehler beim Generieren des Hostnames:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Hostname-Verfügbarkeit prüfen
+app.post('/api/hostname/check', async (req, res) => {
+  try {
+    const { hostname } = req.body;
+
+    if (!hostname || hostname.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Hostname ist erforderlich'));
+    }
+
+    const existierendesGeraet = await db.get('SELECT id, name FROM geraete WHERE hostname = ?', [hostname.trim()]);
+
+    res.json(createResponse(true, {
+      available: !existierendesGeraet,
+      conflictDevice: existierendesGeraet
+    }));
+  } catch (error) {
+    console.error('Fehler beim Prüfen der Hostname-Verfügbarkeit:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
 });
 
 // Verfügbare Kabeltypen abrufen

@@ -43,9 +43,10 @@ import {
   CenterFocusStrong as CenterIcon,
   Download as DownloadIcon,
   AutorenewOutlined as AutoRefreshIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import { Geraet, Verbindung, GeraeteTyp } from '../types';
-import { ThemeContext } from '../App';
+import { ThemeContext, StandortContext } from '../App';
 
 // Gerätetype zu Farbe Mapping
 const getNodeColor = (geraetetyp: GeraeteTyp): string => {
@@ -413,9 +414,9 @@ const nodeTypes = {
 interface NetzwerkDiagrammProps {}
 
 const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
-  const { standortId } = useParams<{ standortId?: string }>();
-  const [selectedStandort, setSelectedStandort] = useState<string>('');
-  const [standorte, setStandorte] = useState<any[]>([]);
+  const { standortName } = useParams<{ standortName?: string }>();
+  const { selectedStandort, selectedStandortData, standorte } = useContext(StandortContext);
+  
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [verbindungen, setVerbindungen] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -428,33 +429,16 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   const theme = useTheme();
   const { darkMode } = useContext(ThemeContext);
 
-  // Standorte laden
-  const ladeStandorte = async () => {
-    try {
-      const response = await fetch('/api/standorte');
-      const data = await response.json();
-      if (data.success) {
-        setStandorte(data.data);
-        // Wenn standortId aus URL vorhanden ist, automatisch auswählen
-        if (standortId && data.data.some((s: any) => s.id === standortId)) {
-          setSelectedStandort(standortId);
-        }
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Standorte:', err);
-    }
-  };
-
   // Diagrammdaten laden (verwendet vollständige Geräte-API)
-  const ladeDiagrammDaten = async (standortIdParam: string) => {
+  const ladeDiagrammDaten = async (standortId: string) => {
     try {
       setLoading(true);
       setError(null);
       
       // Lade vollständige Gerätedaten und Verbindungen parallel
       const [geraeteResponse, verbindungenResponse] = await Promise.all([
-        fetch(`/api/standorte/${standortIdParam}/geraete`),
-        fetch(`/api/standorte/${standortIdParam}/verbindungen`)
+        fetch(`/api/standorte/${standortId}/geraete`),
+        fetch(`/api/standorte/${standortId}/verbindungen`)
       ]);
       
       const geraeteData = await geraeteResponse.json();
@@ -1275,20 +1259,10 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   }, [autoRefresh, selectedStandort]);
 
   useEffect(() => {
-    ladeStandorte();
-  }, []);
-
-  useEffect(() => {
     if (selectedStandort) {
       ladeDiagrammDaten(selectedStandort);
     }
   }, [selectedStandort]);
-
-  useEffect(() => {
-    if (standortId) {
-      setSelectedStandort(standortId);
-    }
-  }, [standortId]);
 
   // Keine manuellen Verbindungen erlaubt - nur aus Datenbank
   const onConnect = useCallback(
@@ -1299,31 +1273,32 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     []
   );
 
+  if (!selectedStandort) {
+    return (
+      <Box sx={{ height: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <LocationIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h5" component="h1" gutterBottom>
+            Kein Standort ausgewählt
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bitte wählen Sie einen Standort in der oberen Navigationsleiste aus, um das Netzwerkdiagramm anzuzeigen.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ height: '100vh', width: '100%' }}>
       {/* Header */}
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h5">
-            Netzwerkdiagramm
+            Netzwerkdiagramm: {selectedStandortData?.name}
           </Typography>
           
           <Box display="flex" alignItems="center" gap={2}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Standort auswählen</InputLabel>
-              <Select
-                value={selectedStandort}
-                onChange={(e) => setSelectedStandort(e.target.value)}
-                label="Standort auswählen"
-              >
-                {standorte.map((standort) => (
-                  <MenuItem key={standort.id} value={standort.id}>
-                    {standort.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             <FormControlLabel
               control={
                 <Switch
@@ -1348,7 +1323,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
 
             <Tooltip title="Aktualisieren">
               <IconButton 
-                onClick={() => selectedStandort && ladeDiagrammDaten(selectedStandort)}
+                onClick={() => ladeDiagrammDaten(selectedStandort)}
                 color="primary"
               >
                 <RefreshIcon />
@@ -1359,7 +1334,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
               <IconButton 
                 onClick={exportiereDiagrammAlsPNG}
                 color="primary"
-                disabled={!selectedStandort || nodes.length === 0}
+                disabled={nodes.length === 0}
               >
                 <DownloadIcon />
               </IconButton>
@@ -1369,7 +1344,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
               variant="outlined"
               size="small"
               onClick={exportiereDiagrammAlsPDF}
-              disabled={!selectedStandort || nodes.length === 0}
+              disabled={nodes.length === 0}
               sx={{ ml: 1 }}
             >
               PDF Export
@@ -1393,7 +1368,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       )}
 
       {/* ReactFlow Diagramm */}
-      {selectedStandort && !loading && (
+      {!loading && (
         <Box sx={{ 
           height: 'calc(100vh - 200px)', 
           border: `1px solid ${darkMode ? theme.palette.divider : '#ddd'}`, 

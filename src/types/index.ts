@@ -16,6 +16,7 @@ export interface Standort {
   id: string;
   name: string; // z.B. DELIN1, DELIN2
   adresse: string;
+  hostnamePrefix?: string; // z.B. DELIN2 für Hostname-Generierung
   ansprechpartner: {
     name: string;
     telefon?: string;
@@ -23,21 +24,66 @@ export interface Standort {
   };
   ansprechpartnerIT?: Ansprechpartner | null;
   ansprechpartnerVorOrt?: Ansprechpartner | null;
-  verfuegbareUplinks: UplinkTyp[];
+  verfuegbareUplinks: any[]; // Legacy - wird durch automatische Router/SD-WAN Erkennung ersetzt
   erstelltAm: Date;
   aktualisiertAm: Date;
 }
 
-export interface UplinkTyp {
+// UplinkTyp Interface entfernt - wird durch automatische Router/SD-WAN Erkennung ersetzt
+
+// Neue IP- und VLAN-Konfiguration Interfaces
+export interface VLANKonfiguration {
+  vlanId: number;
+  vlanName?: string;
+  tagged: boolean; // true = tagged, false = untagged
+  nacZugewiesen?: boolean; // Network Access Control zugewiesen
+  bemerkungen?: string;
+}
+
+export interface IPKonfiguration {
   id: string;
-  typ: 'aDSL' | 'vDSL' | 'Glasfaser' | 'Kabel' | 'Starlink' | 'Mobilfunk' | 'MPLS' | 'SD-WAN';
-  anbieter: string;
-  erwarteteGeschwindigkeit: {
-    download: number; // Mbps
-    upload: number; // Mbps
+  name: string; // z.B. "Management", "Daten", "Gast"
+  portNummer: number; // Zugeordneter Port
+  typ: 'dhcp' | 'statisch';
+  ipAdresse?: string; // nur bei statisch oder zur Dokumentation bei DHCP
+  netzwerkbereich: string; // z.B. "192.168.1.0/24" - auch bei DHCP für Filter
+  gateway?: string;
+  dnsServer?: string[];
+  vlan?: VLANKonfiguration;
+  prioritaet?: number; // 1 = höchste Priorität
+  aktiv: boolean; // true = konfiguriert und aktiv
+  bemerkungen?: string;
+}
+
+// Erweiterte öffentliche IP-Konfiguration für Router
+export interface OeffentlicheIPKonfiguration {
+  id: string;
+  typ: 'einzelip' | 'subnet';
+  
+  // Für einzelne IP (wie bisher)
+  einzelIP?: {
+    adresse?: string; // statische IP oder leer bei dynamisch
+    dynamisch?: boolean; // optional für TypeScript-Kompatibilität
+    dyndnsAktiv?: boolean;
+    dyndnsAdresse?: string;
   };
-  oeffentlicheIpVerfuegbar: boolean;
-  statischeIp?: string;
+  
+  // Für Subnet-Konfiguration
+  subnet?: {
+    netzwerkadresse?: string; // optional für TypeScript-Kompatibilität
+    gateway?: string; // optional für TypeScript-Kompatibilität
+    nutzbareIPs?: OeffentlicheIP[]; // optional für TypeScript-Kompatibilität
+  };
+  
+  aktiv: boolean;
+  bemerkungen?: string;
+}
+
+export interface OeffentlicheIP {
+  id: string;
+  ipAdresse: string; // z.B. "203.0.113.2"
+  verwendung?: string; // z.B. "Webserver", "Mail", "VPN"
+  belegt: boolean;
   bemerkungen?: string;
 }
 
@@ -45,21 +91,31 @@ export interface Geraet {
   id: string;
   standortId: string;
   name: string;
+  hostname?: string; // Automatisch generierter Hostname
   geraetetyp: GeraeteTyp;
   modell: string;
   seriennummer?: string;
   standortDetails?: string; // Genaue Standortangabe (Raum, Container, etc.)
   bemerkungen?: string; // Allgemeine Bemerkungen für alle Geräte
-  ipKonfiguration: {
+  
+  // Neue erweiterte IP-Konfiguration
+  ipKonfigurationen: IPKonfiguration[];
+  
+  // Legacy-Kompatibilität (wird bei Migration gefüllt)
+  ipKonfiguration?: {
     typ: 'dhcp' | 'statisch';
     ipAdresse?: string;
     netzwerkbereich?: string;
   };
+  
   macAdresse?: string;
   anzahlNetzwerkports: number;
   belegteports: PortBelegung[];
   
-  // Router-spezifische öffentliche IP-Konfiguration
+  // Erweiterte Router-spezifische öffentliche IP-Konfiguration
+  oeffentlicheIPKonfigurationen: OeffentlicheIPKonfiguration[];
+  
+  // Legacy Router-Konfiguration (wird bei Migration gefüllt)
   hatOeffentlicheIp?: boolean;
   oeffentlicheIpTyp?: 'dynamisch' | 'statisch';
   dyndnsAktiv?: boolean;
@@ -78,23 +134,19 @@ export interface Geraet {
   aktualisiertAm: Date;
 }
 
-export type GeraeteTyp = 
-  | 'Router'
-  | 'Switch'
-  | 'SD-WAN Gateway'
-  | 'Firewall'
-  | 'Access Point'
-  | 'Kamera'
-  | 'VOIP-Phone'
-  | 'Drucker'
-  | 'AI-Port'
-  | 'NVR'
-  | 'Zugangskontrolle'
-  | 'Serial Server'
-  | 'HMI'
-  | 'Server'
-  | 'Sensor'
-  | 'Sonstiges';
+export type GeraeteTyp = string; // Flexible Gerätetypen aus Datenbank
+
+export interface GeraetetypDefinition {
+  id: string;
+  name: string;
+  beschreibung?: string;
+  icon?: string;
+  farbe?: string;
+  hostnamePrefix?: string;
+  aktiv: boolean;
+  erstellt_am?: string;
+  aktualisiert_am?: string;
+}
 
 export type PortTyp = 
   | 'RJ45'

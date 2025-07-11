@@ -1,17 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
-  Typography,
-  Box,
   Paper,
+  Typography,
+  Button,
+  Grid,
+  Box,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Button,
-  Grid,
+  FormControlLabel,
+  Checkbox,
+  Alert,
+  CircularProgress,
+  Divider,
   Card,
   CardContent,
-  Divider,
   Table,
   TableBody,
   TableCell,
@@ -19,29 +23,26 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Alert,
-  CircularProgress,
   Switch,
-  FormControlLabel,
   FormGroup,
 } from '@mui/material';
 import {
-  Download as DownloadIcon,
+  GetApp as DownloadIcon,
   PictureAsPdf as PdfIcon,
   Image as ImageIcon,
   LocationOn as LocationIcon,
   Router as RouterIcon,
   Cable as CableIcon,
-  People as PeopleIcon,
 } from '@mui/icons-material';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Standort, Geraet, Verbindung } from '../types';
+import { StandortContext } from '../App';
 import RackVisualisierung from './RackVisualisierung';
 
 const ExportBereich: React.FC = () => {
-  const [standorte, setStandorte] = useState<Standort[]>([]);
-  const [selectedStandort, setSelectedStandort] = useState<string>('');
+  const { selectedStandort, selectedStandortData } = useContext(StandortContext);
+  
   const [standortData, setStandortData] = useState<{
     standort: Standort | null;
     geraete: Geraet[];
@@ -63,56 +64,52 @@ const ExportBereich: React.FC = () => {
 
   const exportRef = useRef<HTMLDivElement>(null);
 
-  // Standorte laden
-  const ladeStandorte = async () => {
-    try {
-      const response = await fetch('/api/standorte');
-      const data = await response.json();
-      if (data.success) {
-        setStandorte(data.data);
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Standorte:', err);
-      setError('Fehler beim Laden der Standorte');
-    }
-  };
-
-  // Standort-Daten laden
+  // Standortdaten laden
   const ladeStandortDaten = async (standortId: string) => {
-    if (!standortId) return;
-
     try {
       setLoading(true);
       setError(null);
 
-      // Standort-Details
-      const standortResponse = await fetch(`/api/standorte/${standortId}`);
-      const standortData = await standortResponse.json();
+      // Parallele Anfragen für bessere Performance
+      const [standortResponse, geraeteResponse, verbindungenResponse] = await Promise.all([
+        fetch(`/api/standorte/${standortId}`),
+        fetch(`/api/standorte/${standortId}/geraete`),
+        fetch(`/api/standorte/${standortId}/verbindungen`)
+      ]);
 
-      // Geräte
-      const geraeteResponse = await fetch(`/api/standorte/${standortId}/geraete`);
-      const geraeteData = await geraeteResponse.json();
+      const standortResult = await standortResponse.json();
+      const geraeteResult = await geraeteResponse.json();
+      const verbindungenResult = await verbindungenResponse.json();
 
-      // Verbindungen
-      const verbindungenResponse = await fetch(`/api/standorte/${standortId}/verbindungen`);
-      const verbindungenData = await verbindungenResponse.json();
-
-      if (standortData.success && geraeteData.success && verbindungenData.success) {
+      if (standortResult.success && geraeteResult.success && verbindungenResult.success) {
         setStandortData({
-          standort: standortData.data,
-          geraete: geraeteData.data,
-          verbindungen: verbindungenData.data,
+          standort: standortResult.data,
+          geraete: geraeteResult.data || [],
+          verbindungen: verbindungenResult.data || [],
         });
       } else {
-        setError('Fehler beim Laden der Standort-Daten');
+        setError('Fehler beim Laden der Standortdaten');
       }
     } catch (err) {
-      console.error('Fehler beim Laden der Standort-Daten:', err);
-      setError('Fehler beim Laden der Standort-Daten');
+      console.error('Fehler beim Laden der Standortdaten:', err);
+      setError('Fehler beim Laden der Standortdaten');
     } finally {
       setLoading(false);
     }
   };
+
+  // Daten laden wenn sich der Standort ändert
+  useEffect(() => {
+    if (selectedStandort) {
+      ladeStandortDaten(selectedStandort);
+    } else {
+      setStandortData({
+        standort: null,
+        geraete: [],
+        verbindungen: [],
+      });
+    }
+  }, [selectedStandort]);
 
   // PNG Export
   const exportAsPNG = async () => {
@@ -121,18 +118,17 @@ const ExportBereich: React.FC = () => {
     try {
       setExportLoading(true);
       const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
       });
 
       const link = document.createElement('a');
-      link.download = `${standortData.standort?.name || 'standort'}_export.png`;
+      link.download = `${standortData.standort?.name || 'export'}_dokumentation.png`;
       link.href = canvas.toDataURL();
       link.click();
-    } catch (err) {
-      console.error('Fehler beim PNG-Export:', err);
+    } catch (error) {
+      console.error('Fehler beim PNG-Export:', error);
       setError('Fehler beim PNG-Export');
     } finally {
       setExportLoading(false);
@@ -146,73 +142,61 @@ const ExportBereich: React.FC = () => {
     try {
       setExportLoading(true);
       const canvas = await html2canvas(exportRef.current, {
+        backgroundColor: '#ffffff',
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-      });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      const imgWidth = 295;
-      const pageHeight = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`${standortData.standort?.name || 'standort'}_export.pdf`);
-    } catch (err) {
-      console.error('Fehler beim PDF-Export:', err);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${standortData.standort?.name || 'export'}_dokumentation.pdf`);
+    } catch (error) {
+      console.error('Fehler beim PDF-Export:', error);
       setError('Fehler beim PDF-Export');
     } finally {
       setExportLoading(false);
     }
   };
 
-  // Geräte nach Typ gruppieren
+  // Hilfsfunktion zum Gruppieren der Geräte nach Typ
   const geraeteNachTyp = standortData.geraete.reduce((acc, geraet) => {
-    if (!acc[geraet.geraetetyp]) {
-      acc[geraet.geraetetyp] = [];
+    const typ = geraet.geraetetyp;
+    if (!acc[typ]) {
+      acc[typ] = [];
     }
-    acc[geraet.geraetetyp].push(geraet);
+    acc[typ].push(geraet);
     return acc;
   }, {} as Record<string, Geraet[]>);
 
-  useEffect(() => {
-    ladeStandorte();
-  }, []);
-
-  useEffect(() => {
-    if (selectedStandort) {
-      ladeStandortDaten(selectedStandort);
-    }
-  }, [selectedStandort]);
+  if (!selectedStandort) {
+    return (
+      <Box>
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <LocationIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h5" component="h1" gutterBottom>
+            Kein Standort ausgewählt
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bitte wählen Sie einen Standort in der oberen Navigationsleiste aus, um Exporte zu erstellen.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box>
       {/* Header */}
       <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Export-Bereich
+          Export-Bereich: {selectedStandortData?.name}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Exportieren Sie detaillierte Standort-Dokumentationen als PNG oder PDF
+          Exportieren Sie detaillierte Dokumentationen für den ausgewählten Standort als PNG oder PDF
         </Typography>
       </Paper>
 
@@ -226,75 +210,57 @@ const ExportBereich: React.FC = () => {
       {/* Kontrollbereich */}
       <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={3} alignItems="flex-end">
-          {/* Standort-Auswahl */}
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Standort auswählen</InputLabel>
-              <Select
-                value={selectedStandort}
-                onChange={(e) => setSelectedStandort(e.target.value)}
-                label="Standort auswählen"
-              >
-                {standorte.map((standort) => (
-                  <MenuItem key={standort.id} value={standort.id}>
-                    {standort.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
           {/* Export-Optionen */}
-          <Grid item xs={12} md={4}>
-            <Typography variant="subtitle2" gutterBottom>
-              Export-Inhalte
+          <Grid item xs={12} md={8}>
+            <Typography variant="subtitle1" gutterBottom>
+              Export-Optionen
             </Typography>
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={exportOptions.standortDetails}
-                    onChange={(e) =>
-                      setExportOptions({ ...exportOptions, standortDetails: e.target.checked })
-                    }
-                  />
-                }
-                label="Standort-Details"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={exportOptions.geraeteUebersicht}
-                    onChange={(e) =>
-                      setExportOptions({ ...exportOptions, geraeteUebersicht: e.target.checked })
-                    }
-                  />
-                }
-                label="Geräte-Übersicht"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={exportOptions.verbindungsDetails}
-                    onChange={(e) =>
-                      setExportOptions({ ...exportOptions, verbindungsDetails: e.target.checked })
-                    }
-                  />
-                }
-                label="Verbindungs-Details"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={exportOptions.rackVisualisierung}
-                    onChange={(e) =>
-                      setExportOptions({ ...exportOptions, rackVisualisierung: e.target.checked })
-                    }
-                  />
-                }
-                label="Rack-Visualisierung"
-              />
-            </FormGroup>
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={exportOptions.standortDetails}
+                      onChange={(e) => setExportOptions({...exportOptions, standortDetails: e.target.checked})}
+                    />
+                  }
+                  label="Standort-Details"
+                />
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={exportOptions.geraeteUebersicht}
+                      onChange={(e) => setExportOptions({...exportOptions, geraeteUebersicht: e.target.checked})}
+                    />
+                  }
+                  label="Geräte-Übersicht"
+                />
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={exportOptions.verbindungsDetails}
+                      onChange={(e) => setExportOptions({...exportOptions, verbindungsDetails: e.target.checked})}
+                    />
+                  }
+                  label="Verbindungs-Details"
+                />
+              </Grid>
+              <Grid item xs={6} sm={3}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={exportOptions.rackVisualisierung}
+                      onChange={(e) => setExportOptions({...exportOptions, rackVisualisierung: e.target.checked})}
+                    />
+                  }
+                  label="Rack-Visualisierung"
+                />
+              </Grid>
+            </Grid>
           </Grid>
 
           {/* Export-Buttons */}
@@ -304,7 +270,7 @@ const ExportBereich: React.FC = () => {
                 variant="contained"
                 startIcon={exportLoading ? <CircularProgress size={20} /> : <ImageIcon />}
                 onClick={exportAsPNG}
-                disabled={!selectedStandort || loading || exportLoading}
+                disabled={loading || exportLoading}
                 fullWidth
               >
                 Als PNG exportieren
@@ -314,7 +280,7 @@ const ExportBereich: React.FC = () => {
                 color="secondary"
                 startIcon={exportLoading ? <CircularProgress size={20} /> : <PdfIcon />}
                 onClick={exportAsPDF}
-                disabled={!selectedStandort || loading || exportLoading}
+                disabled={loading || exportLoading}
                 fullWidth
               >
                 Als PDF exportieren
@@ -325,7 +291,7 @@ const ExportBereich: React.FC = () => {
       </Paper>
 
       {/* Vorschau / Export-Inhalt */}
-      {selectedStandort && !loading && standortData.standort && (
+      {!loading && standortData.standort && (
         <Paper elevation={1} sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             Vorschau
@@ -337,49 +303,6 @@ const ExportBereich: React.FC = () => {
             padding: '20px', 
             color: '#000000'
           }}>
-            {/* CSS-Stile für bessere Seitenumbrüche */}
-            <style>
-              {`
-                @media print {
-                  .export-section {
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                    margin-bottom: 20px;
-                  }
-                  
-                  .export-table {
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                  }
-                  
-                  .export-table tr {
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                  }
-                  
-                  .export-table thead {
-                    display: table-header-group;
-                  }
-                  
-                  .export-table tbody {
-                    display: table-row-group;
-                  }
-                  
-                  .export-header {
-                    page-break-after: avoid !important;
-                    break-after: avoid !important;
-                  }
-                  
-                  .export-section-title {
-                    page-break-after: avoid !important;
-                    break-after: avoid !important;
-                    margin-top: 30px;
-                    margin-bottom: 15px;
-                  }
-                }
-              `}
-            </style>
-
             {/* Header für Export */}
             <Box className="export-header" sx={{ mb: 4, borderBottom: '2px solid #c62828', pb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -415,44 +338,17 @@ const ExportBereich: React.FC = () => {
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid item xs={6}>
                     <Typography variant="subtitle2" sx={{ color: '#000000' }}>Adresse:</Typography>
-                    <Typography variant="body2" sx={{ color: '#333333' }}>{standortData.standort.adresse}</Typography>
+                    <Typography variant="body2" sx={{ color: '#666666', mb: 2 }}>
+                      {standortData.standort.adresse}
+                    </Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="subtitle2" sx={{ color: '#000000' }}>Anzahl Geräte:</Typography>
-                    <Typography variant="body2" sx={{ color: '#333333' }}>{standortData.geraete.length}</Typography>
+                    <Typography variant="subtitle2" sx={{ color: '#000000' }}>Ansprechpartner:</Typography>
+                    <Typography variant="body2" sx={{ color: '#666666', mb: 2 }}>
+                      {standortData.standort.ansprechpartner?.name || 'Nicht angegeben'}
+                    </Typography>
                   </Grid>
                 </Grid>
-
-                {/* Ansprechpartner */}
-                {(standortData.standort.ansprechpartnerIT || standortData.standort.ansprechpartnerVorOrt) && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom sx={{ color: '#000000' }}>Ansprechpartner:</Typography>
-                    <Grid container spacing={2}>
-                      {standortData.standort.ansprechpartnerIT && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2" sx={{ color: '#333333' }}><strong>IT:</strong> {standortData.standort.ansprechpartnerIT.name}</Typography>
-                          {standortData.standort.ansprechpartnerIT.telefon && (
-                            <Typography variant="body2" sx={{ color: '#333333' }}>Tel: {standortData.standort.ansprechpartnerIT.telefon}</Typography>
-                          )}
-                          {standortData.standort.ansprechpartnerIT.email && (
-                            <Typography variant="body2" sx={{ color: '#333333' }}>Email: {standortData.standort.ansprechpartnerIT.email}</Typography>
-                          )}
-                        </Grid>
-                      )}
-                      {standortData.standort.ansprechpartnerVorOrt && (
-                        <Grid item xs={6}>
-                          <Typography variant="body2" sx={{ color: '#333333' }}><strong>Vor Ort:</strong> {standortData.standort.ansprechpartnerVorOrt.name}</Typography>
-                          {standortData.standort.ansprechpartnerVorOrt.telefon && (
-                            <Typography variant="body2" sx={{ color: '#333333' }}>Tel: {standortData.standort.ansprechpartnerVorOrt.telefon}</Typography>
-                          )}
-                          {standortData.standort.ansprechpartnerVorOrt.email && (
-                            <Typography variant="body2" sx={{ color: '#333333' }}>Email: {standortData.standort.ansprechpartnerVorOrt.email}</Typography>
-                          )}
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Box>
-                )}
               </Box>
             )}
 
@@ -464,97 +360,38 @@ const ExportBereich: React.FC = () => {
                   Geräte-Übersicht
                 </Typography>
                 <TableContainer className="export-table">
-                  <Table size="small" sx={{ 
-                    '& .MuiTableCell-root': { 
-                      color: '#000000',
-                      borderColor: '#e0e0e0',
-                      padding: '8px 12px',
-                      fontSize: '0.875rem'
-                    }
-                  }}>
+                  <Table size="small" sx={{ '& td, & th': { color: '#000000' } }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell><strong>Name</strong></TableCell>
-                        <TableCell><strong>Typ</strong></TableCell>
-                        <TableCell><strong>Modell</strong></TableCell>
-                        <TableCell><strong>IP-Konfiguration</strong></TableCell>
-                        <TableCell><strong>Öffentliche IP</strong></TableCell>
-                        <TableCell><strong>MAC-Adresse</strong></TableCell>
-                        <TableCell><strong>Ports</strong></TableCell>
-                        <TableCell><strong>Standort/Raum</strong></TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Typ</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Modell</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>IP-Adresse</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Ports</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Bemerkungen</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {[...standortData.geraete]
-                        .sort((a, b) => {
-                          // Sortierung wie in StandortDetails: Modem -> SD-WAN -> Firewall -> Switch -> APs -> Rest
-                          const reihenfolge = [
-                            'Router', // Modem
-                            'SD-WAN Gateway',
-                            'Firewall', 
-                            'Switch',
-                            'Access Point',
-                            'Server',
-                            'Kamera',
-                            'VOIP-Phone',
-                            'Drucker',
-                            'NVR',
-                            'Sensor',
-                            'AI-Port',
-                            'Zugangskontrolle',
-                            'Serial Server',
-                            'HMI'
-                          ];
-                          const indexA = reihenfolge.indexOf(a.geraetetyp);
-                          const indexB = reihenfolge.indexOf(b.geraetetyp);
-                          const priorityA = indexA === -1 ? 999 : indexA;
-                          const priorityB = indexB === -1 ? 999 : indexB;
-                          
-                          if (priorityA !== priorityB) {
-                            return priorityA - priorityB;
-                          }
-                          return a.name.localeCompare(b.name);
-                        })
-                        .map((geraet) => (
+                      {standortData.geraete.map((geraet) => (
                         <TableRow key={geraet.id}>
                           <TableCell>{geraet.name}</TableCell>
-                          <TableCell>{geraet.geraetetyp === 'Router' ? 'Modem' : geraet.geraetetyp}</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={geraet.geraetetyp} 
+                              size="small" 
+                              variant="outlined"
+                              sx={{ 
+                                borderColor: '#c62828',
+                                color: '#c62828'
+                              }}
+                            />
+                          </TableCell>
                           <TableCell>{geraet.modell}</TableCell>
                           <TableCell>
-                            {geraet.ipKonfiguration.typ === 'statisch' 
-                              ? `Statisch: ${geraet.ipKonfiguration.ipAdresse || 'N/A'}` 
-                              : 'DHCP'}
+                            {geraet.ipKonfiguration?.ipAdresse || 'DHCP'}
                           </TableCell>
-                          <TableCell>
-                            {geraet.geraetetyp === 'Router' && geraet.hatOeffentlicheIp ? (
-                              geraet.oeffentlicheIpTyp === 'statisch' && geraet.statischeOeffentlicheIp ? 
-                                `${geraet.statischeOeffentlicheIp} (statisch)` :
-                              geraet.oeffentlicheIpTyp === 'dynamisch' && geraet.dyndnsAktiv && geraet.dyndnsAdresse ? 
-                                `${geraet.dyndnsAdresse} (DynDNS)` :
-                              geraet.oeffentlicheIpTyp === 'dynamisch' ? 
-                                'Dynamisch' : 
-                                'Verfügbar'
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell>{geraet.macAdresse || '-'}</TableCell>
                           <TableCell>{geraet.anzahlNetzwerkports}</TableCell>
-                          <TableCell>
-                            {(() => {
-                              let standortInfo = geraet.standortDetails || '';
-                              
-                              // Rack-Information hinzufügen wenn vorhanden
-                              if (geraet.rackPosition && geraet.rackPosition.rack && geraet.rackPosition.einheit > 0) {
-                                const rackInfo = `${geraet.rackPosition.rack}, ${geraet.rackPosition.einheit}U`;
-                                if (standortInfo) {
-                                  standortInfo += ` - ${rackInfo}`;
-                                } else {
-                                  standortInfo = rackInfo;
-                                }
-                              }
-                              
-                              return standortInfo || '-';
-                            })()}
-                          </TableCell>
+                          <TableCell>{geraet.bemerkungen || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -572,61 +409,44 @@ const ExportBereich: React.FC = () => {
                 </Typography>
                 {standortData.verbindungen.length > 0 ? (
                   <TableContainer className="export-table">
-                    <Table size="small" sx={{ 
-                      '& .MuiTableCell-root': { 
-                        color: '#000000',
-                        borderColor: '#e0e0e0',
-                        padding: '8px 12px',
-                        fontSize: '0.875rem'
-                      }
-                    }}>
+                    <Table size="small" sx={{ '& td, & th': { color: '#000000' } }}>
                       <TableHead>
                         <TableRow>
-                          <TableCell><strong>Quelle</strong></TableCell>
-                          <TableCell><strong>Quell-Port</strong></TableCell>
-                          <TableCell><strong>Ziel</strong></TableCell>
-                          <TableCell><strong>Ziel-Port</strong></TableCell>
-                          <TableCell><strong>Kabeltyp</strong></TableCell>
-                          <TableCell><strong>Länge</strong></TableCell>
-                          <TableCell><strong>Farbe</strong></TableCell>
-                          <TableCell><strong>Kategorie</strong></TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Quell-Gerät</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Port</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Ziel-Gerät</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Port</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Kabeltyp</TableCell>
+                          <TableCell sx={{ fontWeight: 'bold' }}>Länge</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {standortData.verbindungen.map((verbindung) => {
-                          // Finde die Geräte für Port-Labels
-                          const quellGeraet = standortData.geraete.find(g => g.id === (verbindung as any).quell_geraet_id);
-                          const zielGeraet = standortData.geraete.find(g => g.id === (verbindung as any).ziel_geraet_id);
-                          
-                          // Finde Port-Labels
-                          const quellPortLabel = quellGeraet?.belegteports?.find(p => p.portNummer === (verbindung as any).quell_port)?.label;
-                          const zielPortLabel = zielGeraet?.belegteports?.find(p => p.portNummer === (verbindung as any).ziel_port)?.label;
-
-                          return (
-                            <TableRow key={verbindung.id}>
-                              <TableCell>{(verbindung as any).quell_geraet_name}</TableCell>
-                              <TableCell>
-                                {(verbindung as any).quell_port}
-                                {quellPortLabel && <div style={{ fontSize: '0.8em', color: '#666666' }}>({quellPortLabel})</div>}
-                              </TableCell>
-                              <TableCell>{(verbindung as any).ziel_geraet_name}</TableCell>
-                              <TableCell>
-                                {(verbindung as any).ziel_port}
-                                {zielPortLabel && <div style={{ fontSize: '0.8em', color: '#666666' }}>({zielPortLabel})</div>}
-                              </TableCell>
-                              <TableCell>{(verbindung as any).kabeltyp}</TableCell>
-                              <TableCell>{(verbindung as any).kabel_laenge ? `${(verbindung as any).kabel_laenge}m` : '-'}</TableCell>
-                              <TableCell>{(verbindung as any).kabel_farbe || '-'}</TableCell>
-                              <TableCell>{(verbindung as any).kabel_kategorie || '-'}</TableCell>
-                            </TableRow>
-                          );
-                        })}
+                        {standortData.verbindungen.map((verbindung: any) => (
+                          <TableRow key={verbindung.id}>
+                            <TableCell>{verbindung.quell_geraet_name || verbindung.quellGeraetName}</TableCell>
+                            <TableCell>{verbindung.quell_port || verbindung.quellPort}</TableCell>
+                            <TableCell>{verbindung.ziel_geraet_name || verbindung.zielGeraetName}</TableCell>
+                            <TableCell>{verbindung.ziel_port || verbindung.zielPort}</TableCell>
+                            <TableCell>
+                              <Chip 
+                                label={verbindung.kabeltyp} 
+                                size="small" 
+                                variant="outlined"
+                                sx={{ 
+                                  borderColor: '#c62828',
+                                  color: '#c62828'
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>{verbindung.kabel_laenge ? `${verbindung.kabel_laenge}m` : '-'}</TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </TableContainer>
                 ) : (
-                  <Typography variant="body2" sx={{ color: '#666666' }}>
-                    Keine Verbindungen konfiguriert
+                  <Typography variant="body2" sx={{ color: '#666666', fontStyle: 'italic' }}>
+                    Keine Verbindungen dokumentiert.
                   </Typography>
                 )}
               </Box>
@@ -640,13 +460,9 @@ const ExportBereich: React.FC = () => {
                   Rack-Visualisierung
                 </Typography>
                 <Box sx={{ 
-                  mt: 2,
-                  backgroundColor: '#ffffff',
-                  '& .MuiTypography-root': {
-                    color: '#000000 !important'
-                  },
-                  '& .MuiSvgIcon-root': {
-                    color: '#000000 !important'
+                  '& *': { 
+                    color: '#000000 !important',
+                    backgroundColor: 'transparent !important' 
                   }
                 }}>
                   <RackVisualisierung 
@@ -657,20 +473,13 @@ const ExportBereich: React.FC = () => {
                 </Box>
               </Box>
             )}
-
-            {/* Footer für Export */}
-            <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
-              <Typography variant="body2" sx={{ color: '#666666' }}>
-                © 2025 Westfalen AG - Network Documentation Tool
-              </Typography>
-            </Box>
           </div>
         </Paper>
       )}
 
-      {/* Loading */}
+      {/* Lade-Indikator */}
       {loading && (
-        <Box display="flex" justifyContent="center" p={4}>
+        <Box display="flex" justifyContent="center" alignItems="center" p={4}>
           <CircularProgress />
         </Box>
       )}

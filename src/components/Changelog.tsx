@@ -34,6 +34,65 @@ interface ChangelogEntry {
 const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
+      version: '1.5.0',
+      date: '2025-07-11',
+      type: 'minor',
+      changes: [
+        {
+          type: 'added',
+          description: 'Automatisches Hostname-System mit standort- und gerätetypabhängiger Namensgenerierung implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Gerätetyp-Verwaltung mit konfigurierbaren Hostname-Präfixen hinzugefügt (CM, SW, FW, etc.)'
+        },
+        {
+          type: 'added',
+          description: 'Intelligente Hostname-Generierung mit Format: [StandortPrefix][GeraetetypPrefix][3-stellige-Nummer]'
+        },
+        {
+          type: 'added',
+          description: 'Automatische Nummern-Vergabe mit Gap-Detection (wiederverwendung gelöschter Nummern)'
+        },
+        {
+          type: 'added',
+          description: 'Hostname-Präfix-Konfiguration für Standorte (z.B. DELIN2, MELLE1)'
+        },
+        {
+          type: 'added',
+          description: 'Manueller Hostname-Refresh-Button für nachträgliche Aktualisierung'
+        },
+        {
+          type: 'added',
+          description: '16 vordefinierte Gerätetypen mit Standard-Präfixen für gängige Netzwerkgeräte'
+        },
+        {
+          type: 'changed',
+          description: 'Code-Bereinigung: Unverwendete Uplinks-Tabelle und zugehörige APIs entfernt'
+        },
+        {
+          type: 'changed',
+          description: 'Debug-APIs entfernt (wurden nie vom Frontend verwendet)'
+        },
+        {
+          type: 'changed',
+          description: 'UplinkTyp Interface entfernt und durch automatische Router/SD-WAN Erkennung ersetzt'
+        },
+        {
+          type: 'changed',
+          description: 'Unverwendete netzwerk_diagramme Datenbank-Tabelle entfernt'
+        },
+        {
+          type: 'fixed',
+          description: 'Hostname-Präfix Speicherung und Anzeige in Gerätetyp-Verwaltung korrigiert'
+        },
+        {
+          type: 'fixed',
+          description: 'Snake_case zu camelCase Mapping in API-Endpunkten für Hostname-Felder'
+        }
+      ]
+    },
+    {
       version: '1.4.0',
       date: '2025-07-07',
       type: 'minor',

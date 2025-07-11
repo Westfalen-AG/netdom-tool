@@ -34,6 +34,10 @@ import {
   Tooltip,
   Divider,
   useTheme,
+  ToggleButton,
+  ToggleButtonGroup,
+  Toolbar,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,16 +47,19 @@ import {
   Visibility as ViewIcon,
   Computer as ComputerIcon,
   Dns as ModemIcon,
+  LocationOn as LocationIcon,
+  ViewModule as CardViewIcon,
+  List as ListViewIcon,
+  FilterList as FilterIcon,
 } from '@mui/icons-material';
-import { Geraet, GeraeteTyp, Standort, PortTyp, PortBelegung } from '../types';
-import { ThemeContext } from '../App';
+import { Geraet, GeraeteTyp, PortTyp, IPKonfiguration, OeffentlicheIPKonfiguration, OeffentlicheIP } from '../types';
+import { ThemeContext, StandortContext } from '../App';
 
 const GeraeteVerwaltung: React.FC = () => {
   const theme = useTheme();
   const { darkMode } = useContext(ThemeContext);
+  const { selectedStandort, selectedStandortData } = useContext(StandortContext);
   
-  const [standorte, setStandorte] = useState<Standort[]>([]);
-  const [selectedStandort, setSelectedStandort] = useState<string>('');
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [geraetetypen, setGeraetetypen] = useState<string[]>([]);
   const [geraeteVerbindungen, setGeraeteVerbindungen] = useState<any[]>([]);
@@ -63,13 +70,22 @@ const GeraeteVerwaltung: React.FC = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bearbeitenDialogOpen, setBearbeitenDialogOpen] = useState(false);
   const [selectedGeraet, setSelectedGeraet] = useState<Geraet | null>(null);
+  
+  // Filter- und Ansichtsoptionen
+  const [geraetetypFilter, setGeraetetypFilter] = useState<string>('alle');
+  const [ansichtsModus, setAnsichtsModus] = useState<'cards' | 'list'>('cards');
   const [neuGeraet, setNeuGeraet] = useState({
     name: '',
+    hostname: '',
     geraetetyp: '' as GeraeteTyp,
     modell: '',
     seriennummer: '',
     standortDetails: '',
     bemerkungen: '',
+    // Neue IP-Konfiguration
+    ipKonfigurationen: [] as IPKonfiguration[],
+    oeffentlicheIPKonfigurationen: [] as OeffentlicheIPKonfiguration[],
+    // Legacy-Kompatibilität
     ipKonfiguration: {
       typ: 'dhcp' as 'dhcp' | 'statisch',
       ipAdresse: '',
@@ -91,27 +107,97 @@ const GeraeteVerwaltung: React.FC = () => {
   });
 
   // Daten laden
-  const ladeStandorte = async () => {
-    try {
-      const response = await fetch('/api/standorte');
-      const data = await response.json();
-      if (data.success) {
-        setStandorte(data.data);
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Standorte:', err);
-    }
-  };
-
   const ladeGeraetetypen = async () => {
     try {
       const response = await fetch('/api/geraetetypen');
       const data = await response.json();
       if (data.success) {
-        setGeraetetypen(data.data);
+        // Nur die Namen für das Dropdown extrahieren
+        setGeraetetypen(data.data.map((typ: any) => typ.name));
       }
     } catch (err) {
       console.error('Fehler beim Laden der Gerätetypen:', err);
+    }
+  };
+
+  // Gerätetyp automatisch erstellen falls nicht vorhanden
+  const handleGeraetetypChange = async (neuerTyp: string) => {
+    if (neuerTyp && !geraetetypen.includes(neuerTyp)) {
+      try {
+        const response = await fetch('/api/geraetetypen/auto-create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: neuerTyp }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          // Gerätetypen neu laden um den neuen Typ einzuschließen
+          ladeGeraetetypen();
+        }
+      } catch (error) {
+        console.error('Fehler beim automatischen Erstellen des Gerätetyps:', error);
+      }
+    }
+  };
+
+  // Hostname automatisch generieren
+  const generiereHostname = async (geraetetypName: string) => {
+    if (!selectedStandort || !geraetetypName) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/hostname/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          standortId: selectedStandort,
+          geraetetypName: geraetetypName,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setNeuGeraet(prev => ({ ...prev, hostname: data.data.hostname }));
+      } else {
+        console.warn('Hostname konnte nicht generiert werden:', data.message);
+      }
+    } catch (error) {
+      console.error('Fehler beim Generieren des Hostnames:', error);
+    }
+  };
+
+  // Hostname für Bearbeiten-Dialog generieren
+  const generiereHostnameForEdit = async (geraetetypName: string) => {
+    if (!selectedStandort || !geraetetypName || !selectedGeraet) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/hostname/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          standortId: selectedStandort,
+          geraetetypName: geraetetypName,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSelectedGeraet(prev => ({ ...prev!, hostname: data.data.hostname }));
+      } else {
+        console.warn('Hostname konnte nicht generiert werden:', data.message);
+      }
+    } catch (error) {
+      console.error('Fehler beim Generieren des Hostnames:', error);
     }
   };
 
@@ -159,7 +245,7 @@ const GeraeteVerwaltung: React.FC = () => {
   const erstelleGeraet = async () => {
     try {
       if (!selectedStandort) {
-        setError('Bitte wählen Sie zuerst einen Standort aus');
+        setError('Kein Standort ausgewählt');
         return;
       }
 
@@ -204,11 +290,16 @@ const GeraeteVerwaltung: React.FC = () => {
   const resetForm = () => {
     setNeuGeraet({
       name: '',
+      hostname: '',
       geraetetyp: '' as GeraeteTyp,
       modell: '',
       seriennummer: '',
       standortDetails: '',
       bemerkungen: '',
+      // Neue IP-Konfiguration
+      ipKonfigurationen: [],
+      oeffentlicheIPKonfigurationen: [],
+      // Legacy-Kompatibilität
       ipKonfiguration: {
         typ: 'dhcp',
         ipAdresse: '',
@@ -518,8 +609,979 @@ const GeraeteVerwaltung: React.FC = () => {
     return farbMap[kabeltyp] || '#607d8b';
   };
 
+  // Gefilterte Geräte berechnen
+  const gefilterteGeraete = geraete.filter(geraet => {
+    if (geraetetypFilter === 'alle') return true;
+    return geraet.geraetetyp === geraetetypFilter;
+  });
+
+  // Einzigartige Gerätetypen aus den vorhandenen Geräten ermitteln
+  const verfuegbareGeraetetypen = Array.from(new Set(geraete.map(g => g.geraetetyp)));
+
+  // Helper-Funktionen für neue IP-Konfiguration
+  const generiereNeueIPKonfiguration = (portNummer: number): IPKonfiguration => ({
+    id: `ip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name: '',
+    portNummer,
+    typ: 'dhcp',
+    netzwerkbereich: '',
+    aktiv: true,
+    prioritaet: 1,
+  });
+
+  const migriereAlteFeldZuNeueIPKonfiguration = (geraet: Geraet): IPKonfiguration[] => {
+    // Wenn bereits neue IP-Konfigurationen vorhanden sind, diese verwenden
+    if (geraet.ipKonfigurationen && geraet.ipKonfigurationen.length > 0) {
+      return geraet.ipKonfigurationen;
+    }
+    
+    // Legacy-Migration: Alte ipKonfiguration zu neuer Struktur
+    if (geraet.ipKonfiguration && geraet.anzahlNetzwerkports > 0) {
+      return [{
+        id: `legacy-${geraet.id}`,
+        name: 'Legacy Migration',
+        portNummer: 1, // Erste Port als Standard
+        typ: geraet.ipKonfiguration.typ,
+        ipAdresse: geraet.ipKonfiguration.ipAdresse,
+        netzwerkbereich: geraet.ipKonfiguration.netzwerkbereich || '',
+        aktiv: true,
+        prioritaet: 1,
+      }];
+    }
+    
+    return [];
+  };
+
+  const aktualisiereIPKonfiguration = (
+    ipKonfigurationen: IPKonfiguration[], 
+    id: string, 
+    updates: Partial<IPKonfiguration>
+  ): IPKonfiguration[] => {
+    return ipKonfigurationen.map(config => 
+      config.id === id ? { ...config, ...updates } : config
+    );
+  };
+
+  const entferneIPKonfiguration = (ipKonfigurationen: IPKonfiguration[], id: string): IPKonfiguration[] => {
+    return ipKonfigurationen.filter(config => config.id !== id);
+  };
+
+  // Helper-Funktionen für öffentliche IP-Konfiguration
+  const generiereNeueOeffentlicheIPKonfiguration = (typ: 'einzelip' | 'subnet'): OeffentlicheIPKonfiguration => ({
+    id: `oip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    typ,
+    aktiv: true,
+    ...(typ === 'einzelip' ? {
+      einzelIP: {
+        dynamisch: true,
+        dyndnsAktiv: false,
+      }
+    } : {
+      subnet: {
+        netzwerkadresse: '',
+        gateway: '',
+        nutzbareIPs: []
+      }
+    })
+  });
+
+  const generiereNeueOeffentlicheIP = (subnet: string): OeffentlicheIP => ({
+    id: `ip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    ipAdresse: '',
+    belegt: false,
+  });
+
+  const aktualisiereOeffentlicheIPKonfiguration = (
+    configs: OeffentlicheIPKonfiguration[], 
+    id: string, 
+    updates: Partial<OeffentlicheIPKonfiguration>
+  ): OeffentlicheIPKonfiguration[] => {
+    return configs.map(config => 
+      config.id === id ? { ...config, ...updates } : config
+    );
+  };
+
+  const entferneOeffentlicheIPKonfiguration = (configs: OeffentlicheIPKonfiguration[], id: string): OeffentlicheIPKonfiguration[] => {
+    return configs.filter(config => config.id !== id);
+  };
+
+
+
+  // IP-Konfiguration UI rendern
+  const renderIPKonfigurationUI = (
+    ipKonfigurationen: IPKonfiguration[], 
+    updateIPKonfigurationen: (configs: IPKonfiguration[]) => void,
+    anzahlPorts: number
+  ) => {
+    if (anzahlPorts === 0) {
+      return (
+        <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Keine IP-Konfiguration möglich - keine Netzwerkports konfiguriert
+          </Typography>
+        </Box>
+      );
+    }
+
+    const verfuegbarePorts = Array.from({ length: anzahlPorts }, (_, i) => i + 1);
+
+    return (
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="subtitle1" fontWeight="medium">
+            IP-Konfigurationen ({ipKonfigurationen.length})
+          </Typography>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              const neueKonfiguration = generiereNeueIPKonfiguration(1);
+              updateIPKonfigurationen([...ipKonfigurationen, neueKonfiguration]);
+            }}
+          >
+            IP-Konfiguration hinzufügen
+          </Button>
+        </Box>
+
+        {ipKonfigurationen.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Noch keine IP-Konfigurationen definiert
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Fügen Sie IP-Konfigurationen für die verschiedenen Ports hinzu
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {ipKonfigurationen.map((ipConfig, index) => (
+              <Grid item xs={12} key={ipConfig.id}>
+                <Paper elevation={1} sx={{ p: 2, position: 'relative' }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Typography variant="subtitle2" color="primary">
+                      IP-Konfiguration #{index + 1}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => updateIPKonfigurationen(entferneIPKonfiguration(ipKonfigurationen, ipConfig.id))}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+
+                  <Grid container spacing={2}>
+                    {/* Name/Beschreibung */}
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Name/Beschreibung"
+                        fullWidth
+                        size="small"
+                        placeholder="z.B. Management, Daten, Gast"
+                        value={ipConfig.name}
+                        onChange={(e) => updateIPKonfigurationen(
+                          aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { name: e.target.value })
+                        )}
+                      />
+                    </Grid>
+
+                    {/* Port-Zuordnung */}
+                    <Grid item xs={12} sm={3}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Port</InputLabel>
+                        <Select
+                          value={ipConfig.portNummer}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { portNummer: Number(e.target.value) })
+                          )}
+                          label="Port"
+                        >
+                          {verfuegbarePorts.map(port => (
+                            <MenuItem key={port} value={port}>
+                              Port {port}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Priorität */}
+                    <Grid item xs={12} sm={3}>
+                      <TextField
+                        label="Priorität"
+                        type="number"
+                        fullWidth
+                        size="small"
+                        value={ipConfig.prioritaet || 1}
+                        onChange={(e) => updateIPKonfigurationen(
+                          aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { prioritaet: Number(e.target.value) })
+                        )}
+                        inputProps={{ min: 1, max: 10 }}
+                        helperText="1 = höchste Priorität"
+                      />
+                    </Grid>
+
+                    {/* IP-Typ */}
+                    <Grid item xs={12} sm={6}>
+                      <FormControl component="fieldset">
+                        <FormLabel component="legend">IP-Typ</FormLabel>
+                        <RadioGroup
+                          row
+                          value={ipConfig.typ}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { typ: e.target.value as 'dhcp' | 'statisch' })
+                          )}
+                        >
+                          <FormControlLabel value="dhcp" control={<Radio size="small" />} label="DHCP" />
+                          <FormControlLabel value="statisch" control={<Radio size="small" />} label="Statisch" />
+                        </RadioGroup>
+                      </FormControl>
+                    </Grid>
+
+                    {/* Aktiv-Status */}
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <input
+                            type="checkbox"
+                            checked={ipConfig.aktiv}
+                            onChange={(e) => updateIPKonfigurationen(
+                              aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { aktiv: e.target.checked })
+                            )}
+                            style={{ 
+                              accentColor: darkMode ? '#90caf9' : '#1976d2',
+                              transform: 'scale(1.2)',
+                              marginRight: '8px'
+                            }}
+                          />
+                        }
+                        label="Aktiv"
+                      />
+                    </Grid>
+
+                    {/* Netzwerkbereich (immer anzeigen) */}
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        label="Netzwerkbereich"
+                        fullWidth
+                        size="small"
+                        placeholder="192.168.1.0/24"
+                        value={ipConfig.netzwerkbereich}
+                        onChange={(e) => updateIPKonfigurationen(
+                          aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { netzwerkbereich: e.target.value })
+                        )}
+                        helperText="Auch bei DHCP für Filter angeben"
+                        required
+                      />
+                    </Grid>
+
+                    {/* IP-Adresse (nur bei statisch erforderlich) */}
+                    {ipConfig.typ === 'statisch' && (
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="IP-Adresse"
+                          fullWidth
+                          size="small"
+                          placeholder="192.168.1.100"
+                          value={ipConfig.ipAdresse || ''}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { ipAdresse: e.target.value })
+                          )}
+                          required
+                        />
+                      </Grid>
+                    )}
+
+                    {/* Gateway (optional bei statisch) */}
+                    {ipConfig.typ === 'statisch' && (
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Gateway"
+                          fullWidth
+                          size="small"
+                          placeholder="192.168.1.1"
+                          value={ipConfig.gateway || ''}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { gateway: e.target.value })
+                          )}
+                        />
+                      </Grid>
+                    )}
+
+                    {/* VLAN-Konfiguration */}
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                        VLAN-Konfiguration (optional)
+                      </Typography>
+                      <Divider sx={{ mb: 2 }} />
+                    </Grid>
+
+                    <Grid item xs={12} sm={3}>
+                      <TextField
+                        label="VLAN ID"
+                        type="number"
+                        fullWidth
+                        size="small"
+                        placeholder="100"
+                        value={ipConfig.vlan?.vlanId || ''}
+                        onChange={(e) => {
+                          const vlanId = parseInt(e.target.value) || 0;
+                          updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { 
+                              vlan: { 
+                                ...ipConfig.vlan,
+                                vlanId,
+                                tagged: ipConfig.vlan?.tagged || false
+                              } 
+                            })
+                          );
+                        }}
+                        inputProps={{ min: 1, max: 4094 }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={3}>
+                      <TextField
+                        label="VLAN Name"
+                        fullWidth
+                        size="small"
+                        placeholder="Management"
+                        value={ipConfig.vlan?.vlanName || ''}
+                        onChange={(e) => updateIPKonfigurationen(
+                          aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { 
+                            vlan: { 
+                              ...ipConfig.vlan,
+                              vlanId: ipConfig.vlan?.vlanId || 0,
+                              tagged: ipConfig.vlan?.tagged || false,
+                              vlanName: e.target.value
+                            } 
+                          })
+                        )}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={3}>
+                      <FormControl component="fieldset">
+                        <FormLabel component="legend">VLAN-Typ</FormLabel>
+                        <RadioGroup
+                          row
+                          value={ipConfig.vlan?.tagged ? 'tagged' : 'untagged'}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { 
+                              vlan: { 
+                                ...ipConfig.vlan,
+                                vlanId: ipConfig.vlan?.vlanId || 0,
+                                tagged: e.target.value === 'tagged'
+                              } 
+                            })
+                          )}
+                        >
+                          <FormControlLabel value="untagged" control={<Radio size="small" />} label="Untagged" />
+                          <FormControlLabel value="tagged" control={<Radio size="small" />} label="Tagged" />
+                        </RadioGroup>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} sm={3}>
+                      <FormControlLabel
+                        control={
+                          <input
+                            type="checkbox"
+                            checked={ipConfig.vlan?.nacZugewiesen || false}
+                            onChange={(e) => updateIPKonfigurationen(
+                              aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { 
+                                vlan: { 
+                                  ...ipConfig.vlan,
+                                  vlanId: ipConfig.vlan?.vlanId || 0,
+                                  tagged: ipConfig.vlan?.tagged || false,
+                                  nacZugewiesen: e.target.checked
+                                } 
+                              })
+                            )}
+                            style={{ 
+                              accentColor: darkMode ? '#90caf9' : '#1976d2',
+                              transform: 'scale(1.2)',
+                              marginRight: '8px'
+                            }}
+                          />
+                        }
+                        label="NAC-Zuweisung"
+                      />
+                    </Grid>
+
+                    {/* VLAN Bemerkungen */}
+                    {ipConfig.vlan?.vlanId && (
+                      <Grid item xs={12}>
+                        <TextField
+                          label="VLAN Bemerkungen"
+                          fullWidth
+                          size="small"
+                          placeholder="Zusätzliche VLAN-Informationen..."
+                          value={ipConfig.vlan?.bemerkungen || ''}
+                          onChange={(e) => updateIPKonfigurationen(
+                            aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { 
+                              vlan: { 
+                                ...ipConfig.vlan,
+                                vlanId: ipConfig.vlan?.vlanId || 0,
+                                tagged: ipConfig.vlan?.tagged || false,
+                                bemerkungen: e.target.value
+                              } 
+                            })
+                          )}
+                        />
+                      </Grid>
+                    )}
+
+                    {/* Bemerkungen */}
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Bemerkungen"
+                        fullWidth
+                        size="small"
+                        multiline
+                        rows={2}
+                        placeholder="Zusätzliche Informationen zur IP-Konfiguration..."
+                        value={ipConfig.bemerkungen || ''}
+                        onChange={(e) => updateIPKonfigurationen(
+                          aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { bemerkungen: e.target.value })
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Box>
+    );
+  };
+
+  // Erweiterte öffentliche IP-Konfiguration UI rendern
+  const renderOeffentlicheIPKonfigurationUI = (
+    oeffentlicheIPKonfigurationen: OeffentlicheIPKonfiguration[],
+    updateOeffentlicheIPKonfigurationen: (configs: OeffentlicheIPKonfiguration[]) => void
+  ) => {
+    return (
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="subtitle1" fontWeight="medium">
+            Öffentliche IP-Konfigurationen ({oeffentlicheIPKonfigurationen.length})
+          </Typography>
+          <Box display="flex" gap={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                const neueKonfiguration = generiereNeueOeffentlicheIPKonfiguration('einzelip');
+                updateOeffentlicheIPKonfigurationen([...oeffentlicheIPKonfigurationen, neueKonfiguration]);
+              }}
+            >
+              Einzelne IP
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                const neueKonfiguration = generiereNeueOeffentlicheIPKonfiguration('subnet');
+                updateOeffentlicheIPKonfigurationen([...oeffentlicheIPKonfigurationen, neueKonfiguration]);
+              }}
+            >
+              Subnet
+            </Button>
+          </Box>
+        </Box>
+
+        {oeffentlicheIPKonfigurationen.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Noch keine öffentlichen IP-Konfigurationen definiert
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Fügen Sie Einzelne IPs oder Subnet-Konfigurationen hinzu
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {oeffentlicheIPKonfigurationen.map((ipConfig, index) => (
+              <Grid item xs={12} key={ipConfig.id}>
+                <Paper elevation={1} sx={{ p: 2, position: 'relative' }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Typography variant="subtitle2" color="primary">
+                      {ipConfig.typ === 'einzelip' ? 'Einzelne IP' : 'Subnet'} #{index + 1}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => updateOeffentlicheIPKonfigurationen(
+                        entferneOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id)
+                      )}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+
+                  <Grid container spacing={2}>
+                    {/* Aktiv-Status */}
+                    <Grid item xs={12} sm={6}>
+                      <FormControlLabel
+                        control={
+                          <input
+                            type="checkbox"
+                            checked={ipConfig.aktiv}
+                            onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                              aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, { aktiv: e.target.checked })
+                            )}
+                            style={{ 
+                              accentColor: darkMode ? '#90caf9' : '#1976d2',
+                              transform: 'scale(1.2)',
+                              marginRight: '8px'
+                            }}
+                          />
+                        }
+                        label="Aktiv"
+                      />
+                    </Grid>
+
+                    {/* Einzelne IP Konfiguration */}
+                    {ipConfig.typ === 'einzelip' && ipConfig.einzelIP && (
+                      <>
+                        <Grid item xs={12}>
+                          <FormControl component="fieldset">
+                            <FormLabel component="legend">IP-Typ</FormLabel>
+                            <RadioGroup
+                              row
+                              value={ipConfig.einzelIP.dynamisch ? 'dynamisch' : 'statisch'}
+                              onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                                aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                  einzelIP: {
+                                    ...ipConfig.einzelIP,
+                                    dynamisch: e.target.value === 'dynamisch'
+                                  }
+                                })
+                              )}
+                            >
+                              <FormControlLabel value="dynamisch" control={<Radio size="small" />} label="Dynamisch" />
+                              <FormControlLabel value="statisch" control={<Radio size="small" />} label="Statisch" />
+                            </RadioGroup>
+                          </FormControl>
+                        </Grid>
+
+                        {!ipConfig.einzelIP.dynamisch && (
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Statische IP-Adresse"
+                              fullWidth
+                              size="small"
+                              placeholder="203.0.113.1"
+                              value={ipConfig.einzelIP.adresse || ''}
+                                                             onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                                 aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                   einzelIP: {
+                                     dynamisch: ipConfig.einzelIP?.dynamisch || false,
+                                     dyndnsAktiv: ipConfig.einzelIP?.dyndnsAktiv,
+                                     dyndnsAdresse: ipConfig.einzelIP?.dyndnsAdresse,
+                                     adresse: e.target.value
+                                   }
+                                 })
+                               )}
+                            />
+                          </Grid>
+                        )}
+
+                        {ipConfig.einzelIP.dynamisch && (
+                          <>
+                            <Grid item xs={12} sm={6}>
+                              <FormControlLabel
+                                control={
+                                  <input
+                                    type="checkbox"
+                                    checked={ipConfig.einzelIP.dyndnsAktiv || false}
+                                                                           onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                                         aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                           einzelIP: {
+                                             dynamisch: ipConfig.einzelIP?.dynamisch ?? true,
+                                             adresse: ipConfig.einzelIP?.adresse,
+                                             dyndnsAdresse: ipConfig.einzelIP?.dyndnsAdresse,
+                                             dyndnsAktiv: e.target.checked
+                                           }
+                                         })
+                                       )}
+                                    style={{ 
+                                      accentColor: darkMode ? '#90caf9' : '#1976d2',
+                                      transform: 'scale(1.2)',
+                                      marginRight: '8px'
+                                    }}
+                                  />
+                                }
+                                label="DynDNS verwenden"
+                              />
+                            </Grid>
+
+                            {ipConfig.einzelIP.dyndnsAktiv && (
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  label="DynDNS-Adresse"
+                                  fullWidth
+                                  size="small"
+                                  placeholder="beispiel.dyndns.org"
+                                  value={ipConfig.einzelIP.dyndnsAdresse || ''}
+                                  onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                                    aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                      einzelIP: {
+                                        ...ipConfig.einzelIP,
+                                        dyndnsAdresse: e.target.value
+                                      }
+                                    })
+                                  )}
+                                />
+                              </Grid>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {/* Subnet Konfiguration */}
+                    {ipConfig.typ === 'subnet' && ipConfig.subnet && (
+                      <>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Netzwerkadresse"
+                            fullWidth
+                            size="small"
+                            placeholder="203.0.113.0/29"
+                            value={ipConfig.subnet.netzwerkadresse}
+                            onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                              aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                subnet: {
+                                  ...ipConfig.subnet,
+                                  netzwerkadresse: e.target.value
+                                }
+                              })
+                            )}
+                            helperText="z.B. 203.0.113.0/29 für 6 nutzbare IPs"
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Gateway"
+                            fullWidth
+                            size="small"
+                            placeholder="203.0.113.1"
+                            value={ipConfig.subnet.gateway}
+                            onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                              aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                subnet: {
+                                  ...ipConfig.subnet,
+                                  gateway: e.target.value
+                                }
+                              })
+                            )}
+                          />
+                        </Grid>
+
+                        {/* Nutzbare IPs Verwaltung */}
+                        <Grid item xs={12}>
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                            <Typography variant="body2" fontWeight="medium">
+                              Nutzbare IPs ({ipConfig.subnet?.nutzbareIPs?.length || 0})
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="text"
+                              startIcon={<AddIcon />}
+                                                             onClick={() => {
+                                 if (ipConfig.subnet) {
+                                   const neueIP = generiereNeueOeffentlicheIP(ipConfig.subnet.netzwerkadresse || '');
+                                   updateOeffentlicheIPKonfigurationen(
+                                     aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                       subnet: {
+                                         netzwerkadresse: ipConfig.subnet.netzwerkadresse || '',
+                                         gateway: ipConfig.subnet.gateway || '',
+                                         nutzbareIPs: [...(ipConfig.subnet.nutzbareIPs || []), neueIP]
+                                       }
+                                     })
+                                   );
+                                 }
+                               }}
+                            >
+                              IP hinzufügen
+                            </Button>
+                          </Box>
+
+                                                     {(ipConfig.subnet?.nutzbareIPs || []).map((nutzareIP, ipIndex) => (
+                            <Grid container spacing={1} key={nutzareIP.id} sx={{ mb: 1 }}>
+                              <Grid item xs={3}>
+                                <TextField
+                                  label="IP-Adresse"
+                                  fullWidth
+                                  size="small"
+                                  placeholder="203.0.113.2"
+                                  value={nutzareIP.ipAdresse}
+                                                                     onChange={(e) => {
+                                     if (ipConfig.subnet?.nutzbareIPs) {
+                                       const aktualisiereNutzbareIPs = ipConfig.subnet.nutzbareIPs.map(ip => 
+                                         ip.id === nutzareIP.id ? { ...ip, ipAdresse: e.target.value } : ip
+                                       );
+                                       updateOeffentlicheIPKonfigurationen(
+                                         aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                           subnet: {
+                                             netzwerkadresse: ipConfig.subnet.netzwerkadresse || '',
+                                             gateway: ipConfig.subnet.gateway || '',
+                                             nutzbareIPs: aktualisiereNutzbareIPs
+                                           }
+                                         })
+                                       );
+                                     }
+                                   }}
+                                />
+                              </Grid>
+                              <Grid item xs={3}>
+                                <TextField
+                                  label="Verwendung"
+                                  fullWidth
+                                  size="small"
+                                  placeholder="Webserver"
+                                  value={nutzareIP.verwendung || ''}
+                                  onChange={(e) => {
+                                    // @ts-ignore - subnet ist hier durch Kontext garantiert definiert
+                                    const aktualisiereNutzbareIPs = ipConfig.subnet.nutzbareIPs.map(ip => 
+                                      ip.id === nutzareIP.id ? { ...ip, verwendung: e.target.value } : ip
+                                    );
+                                    updateOeffentlicheIPKonfigurationen(
+                                      aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                        subnet: {
+                                          ...ipConfig.subnet,
+                                          nutzbareIPs: aktualisiereNutzbareIPs
+                                        }
+                                      })
+                                    );
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={2}>
+                                <FormControlLabel
+                                  control={
+                                    <input
+                                      type="checkbox"
+                                      checked={nutzareIP.belegt}
+                                      onChange={(e) => {
+                                        // @ts-ignore - subnet ist hier durch Kontext garantiert definiert
+                                        const aktualisiereNutzbareIPs = ipConfig.subnet.nutzbareIPs.map(ip => 
+                                          ip.id === nutzareIP.id ? { ...ip, belegt: e.target.checked } : ip
+                                        );
+                                        updateOeffentlicheIPKonfigurationen(
+                                          aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                            subnet: {
+                                              ...ipConfig.subnet,
+                                              nutzbareIPs: aktualisiereNutzbareIPs
+                                            }
+                                          })
+                                        );
+                                      }}
+                                      style={{ 
+                                        accentColor: darkMode ? '#90caf9' : '#1976d2',
+                                        transform: 'scale(1.2)'
+                                      }}
+                                    />
+                                  }
+                                  label="Belegt"
+                                />
+                              </Grid>
+                              <Grid item xs={3}>
+                                <TextField
+                                  label="Bemerkungen"
+                                  fullWidth
+                                  size="small"
+                                  value={nutzareIP.bemerkungen || ''}
+                                  onChange={(e) => {
+                                    // @ts-ignore - subnet ist hier durch Kontext garantiert definiert
+                                    const aktualisiereNutzbareIPs = ipConfig.subnet.nutzbareIPs.map(ip => 
+                                      ip.id === nutzareIP.id ? { ...ip, bemerkungen: e.target.value } : ip
+                                    );
+                                    updateOeffentlicheIPKonfigurationen(
+                                      aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                        subnet: {
+                                          ...ipConfig.subnet,
+                                          nutzbareIPs: aktualisiereNutzbareIPs
+                                        }
+                                      })
+                                    );
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={1}>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    // @ts-ignore - subnet ist hier durch Kontext garantiert definiert  
+                                    const aktualisiereNutzbareIPs = ipConfig.subnet.nutzbareIPs.filter(ip => ip.id !== nutzareIP.id);
+                                    updateOeffentlicheIPKonfigurationen(
+                                      aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, {
+                                        subnet: {
+                                          ...ipConfig.subnet,
+                                          nutzbareIPs: aktualisiereNutzbareIPs
+                                        }
+                                      })
+                                    );
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </>
+                    )}
+
+                    {/* Bemerkungen */}
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Bemerkungen"
+                        fullWidth
+                        size="small"
+                        multiline
+                        rows={2}
+                        placeholder="Zusätzliche Informationen zur öffentlichen IP-Konfiguration..."
+                        value={ipConfig.bemerkungen || ''}
+                        onChange={(e) => updateOeffentlicheIPKonfigurationen(
+                          aktualisiereOeffentlicheIPKonfiguration(oeffentlicheIPKonfigurationen, ipConfig.id, { bemerkungen: e.target.value })
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Box>
+    );
+  };
+
+  // Tabellen-Ansicht rendern
+  const renderTabellenAnsicht = () => (
+    <TableContainer component={Paper}>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Name</TableCell>
+            <TableCell>Typ</TableCell>
+            <TableCell>Modell</TableCell>
+            <TableCell>LAN IP</TableCell>
+            <TableCell>WAN IP</TableCell>
+            <TableCell>Ports</TableCell>
+            <TableCell>MAC-Adresse</TableCell>
+            <TableCell>Rack</TableCell>
+            <TableCell align="right">Aktionen</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {gefilterteGeraete.map((geraet) => (
+            <TableRow key={geraet.id} hover>
+              <TableCell>
+                <Box display="flex" alignItems="center">
+                  <Box
+                    sx={{
+                      color: getGeraetColor(geraet.geraetetyp),
+                      mr: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {getGeraetIcon(geraet.geraetetyp)}
+                  </Box>
+                  {geraet.name}
+                </Box>
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={geraet.geraetetyp}
+                  size="small"
+                  sx={{
+                    backgroundColor: getGeraetColor(geraet.geraetetyp),
+                    color: 'white',
+                  }}
+                />
+              </TableCell>
+              <TableCell>{geraet.modell}</TableCell>
+              <TableCell>{geraet.ipKonfiguration?.ipAdresse || '-'}</TableCell>
+              <TableCell>
+                {geraet.geraetetyp === 'Router' && geraet.hatOeffentlicheIp ? (
+                  <Typography variant="body2" color="primary" sx={{ fontWeight: 'medium' }}>
+                    {geraet.oeffentlicheIpTyp === 'statisch' && geraet.statischeOeffentlicheIp ? 
+                      geraet.statischeOeffentlicheIp :
+                    geraet.oeffentlicheIpTyp === 'dynamisch' && geraet.dyndnsAktiv && geraet.dyndnsAdresse ? 
+                      geraet.dyndnsAdresse :
+                    geraet.oeffentlicheIpTyp === 'dynamisch' ? 
+                      'Dynamisch' : 
+                      'Verfügbar'
+                    }
+                  </Typography>
+                ) : '-'}
+              </TableCell>
+              <TableCell>{geraet.anzahlNetzwerkports}</TableCell>
+              <TableCell>{geraet.macAdresse || '-'}</TableCell>
+              <TableCell>
+                {geraet.rackPosition?.rack ? 
+                  `${geraet.rackPosition.rack} - HE ${geraet.rackPosition.einheit}` : 
+                  '-'
+                }
+              </TableCell>
+              <TableCell align="right">
+                <Tooltip title="Details anzeigen">
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setSelectedGeraet(geraet);
+                      setDetailDialogOpen(true);
+                      ladeGeraeteVerbindungen(geraet.id);
+                    }}
+                  >
+                    <ViewIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Bearbeiten">
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      // Gerät in bearbeitbares Format kopieren
+                      const bearbeitbaresGeraet = {
+                        ...geraet,
+                        ipKonfiguration: {
+                          typ: geraet.ipKonfiguration?.typ || 'dhcp',
+                          ipAdresse: geraet.ipKonfiguration?.ipAdresse || '',
+                          netzwerkbereich: geraet.ipKonfiguration?.netzwerkbereich || '',
+                        },
+                        rackPosition: {
+                          rack: geraet.rackPosition?.rack || '',
+                          einheit: geraet.rackPosition?.einheit || 0,
+                        },
+                        belegteports: geraet.belegteports || generierePortKonfiguration(geraet.anzahlNetzwerkports, false, [])
+                      };
+                      setSelectedGeraet(bearbeitbaresGeraet);
+                      setBearbeitenDialogOpen(true);
+                    }}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
   useEffect(() => {
-    ladeStandorte();
     ladeGeraetetypen();
   }, []);
 
@@ -529,6 +1591,22 @@ const GeraeteVerwaltung: React.FC = () => {
     }
   }, [selectedStandort]);
 
+  if (!selectedStandort) {
+    return (
+      <Box>
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <LocationIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h5" component="h1" gutterBottom>
+            Kein Standort ausgewählt
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bitte wählen Sie einen Standort in der oberen Navigationsleiste aus, um Geräte zu verwalten.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -536,39 +1614,89 @@ const GeraeteVerwaltung: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Geräte-Verwaltung
+              Geräte-Verwaltung: {selectedStandortData?.name}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Verwalten Sie alle Netzwerkgeräte an Ihren Standorten
+              Verwalten Sie alle Netzwerkgeräte am ausgewählten Standort
             </Typography>
           </Box>
-          <Box display="flex" alignItems="center" gap={2}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Standort auswählen</InputLabel>
-              <Select
-                value={selectedStandort}
-                onChange={(e) => setSelectedStandort(e.target.value)}
-                label="Standort auswählen"
-              >
-                {standorte.map((standort) => (
-                  <MenuItem key={standort.id} value={standort.id}>
-                    {standort.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-              disabled={!selectedStandort}
-              size="large"
-            >
-              Neues Gerät
-            </Button>
-          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+            size="large"
+          >
+            Neues Gerät
+          </Button>
         </Box>
       </Paper>
+
+      {/* Filter- und Ansichts-Toolbar */}
+      {geraete.length > 0 && (
+        <Paper elevation={1} sx={{ mb: 3 }}>
+          <Toolbar sx={{ justifyContent: 'space-between', minHeight: '64px !important' }}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <FilterIcon color="primary" />
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Gerätetyp filtern</InputLabel>
+                <Select
+                  value={geraetetypFilter}
+                  onChange={(e) => setGeraetetypFilter(e.target.value)}
+                  label="Gerätetyp filtern"
+                >
+                  <MenuItem value="alle">Alle Gerätetypen</MenuItem>
+                  {verfuegbareGeraetetypen.map((typ) => (
+                    <MenuItem key={typ} value={typ}>
+                      <Box display="flex" alignItems="center">
+                        <Box
+                          sx={{
+                            color: getGeraetColor(typ as GeraeteTyp),
+                            mr: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {getGeraetIcon(typ as GeraeteTyp)}
+                        </Box>
+                        {typ}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              {geraetetypFilter !== 'alle' && (
+                <Typography variant="body2" color="text.secondary">
+                  {gefilterteGeraete.length} von {geraete.length} Geräten
+                </Typography>
+              )}
+            </Box>
+
+            <Box display="flex" alignItems="center" gap={2}>
+              <Typography variant="body2" color="text.secondary">
+                Ansicht:
+              </Typography>
+              <ToggleButtonGroup
+                value={ansichtsModus}
+                exclusive
+                onChange={(e, newValue) => newValue && setAnsichtsModus(newValue)}
+                size="small"
+              >
+                <ToggleButton value="cards" aria-label="Karten-Ansicht">
+                  <Tooltip title="Karten-Ansicht (Details)">
+                    <CardViewIcon />
+                  </Tooltip>
+                </ToggleButton>
+                <ToggleButton value="list" aria-label="Listen-Ansicht">
+                  <Tooltip title="Listen-Ansicht (Tabelle)">
+                    <ListViewIcon />
+                  </Tooltip>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          </Toolbar>
+        </Paper>
+      )}
 
       {/* Fehler-Anzeige */}
       {error && (
@@ -585,10 +1713,15 @@ const GeraeteVerwaltung: React.FC = () => {
       )}
 
       {/* Geräte-Übersicht */}
-      {selectedStandort && !loading && (
+      {!loading && (
         <Paper elevation={2} sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Geräte am Standort: {standorte.find(s => s.id === selectedStandort)?.name}
+            Geräte am Standort: {selectedStandortData?.name}
+            {geraetetypFilter !== 'alle' && (
+              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                (gefiltert nach {geraetetypFilter})
+              </Typography>
+            )}
           </Typography>
           
           {geraete.length === 0 ? (
@@ -608,9 +1741,25 @@ const GeraeteVerwaltung: React.FC = () => {
                 Erstes Gerät hinzufügen
               </Button>
             </Box>
-          ) : (
+          ) : gefilterteGeraete.length === 0 ? (
+            <Box textAlign="center" py={6}>
+              <FilterIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Keine Geräte entsprechen dem Filter
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Versuchen Sie einen anderen Filter oder setzen Sie den Filter zurück.
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => setGeraetetypFilter('alle')}
+              >
+                Filter zurücksetzen
+              </Button>
+            </Box>
+          ) : ansichtsModus === 'cards' ? (
             <Grid container spacing={2}>
-              {geraete.map((geraet) => (
+              {gefilterteGeraete.map((geraet) => (
                 <Grid item xs={12} sm={6} md={4} key={geraet.id}>
                   <Card elevation={3} sx={{ height: '100%' }}>
                     <CardContent>
@@ -696,7 +1845,7 @@ const GeraeteVerwaltung: React.FC = () => {
                         size="small" 
                         startIcon={<EditIcon />}
                         onClick={() => {
-                          // Gerät in bearbeitbares Format kopieren
+                          // Gerät in bearbeitbares Format kopieren mit IP-Konfiguration Migration
                           const bearbeitbaresGeraet = {
                             ...geraet,
                             ipKonfiguration: {
@@ -704,6 +1853,9 @@ const GeraeteVerwaltung: React.FC = () => {
                               ipAdresse: geraet.ipKonfiguration?.ipAdresse || '',
                               netzwerkbereich: geraet.ipKonfiguration?.netzwerkbereich || '',
                             },
+                            // Neue IP-Konfigurationen - Migration von Legacy-Daten
+                            ipKonfigurationen: migriereAlteFeldZuNeueIPKonfiguration(geraet),
+                            oeffentlicheIPKonfigurationen: geraet.oeffentlicheIPKonfigurationen || [],
                             rackPosition: {
                               rack: geraet.rackPosition?.rack || '',
                               einheit: geraet.rackPosition?.einheit || 0,
@@ -721,6 +1873,8 @@ const GeraeteVerwaltung: React.FC = () => {
                 </Grid>
               ))}
             </Grid>
+          ) : (
+            renderTabellenAnsicht()
           )}
         </Paper>
       )}
@@ -777,20 +1931,54 @@ const GeraeteVerwaltung: React.FC = () => {
               </Grid>
               
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Gerätetyp</InputLabel>
-                  <Select
-                    value={neuGeraet.geraetetyp}
-                    onChange={(e) => setNeuGeraet({ ...neuGeraet, geraetetyp: e.target.value as GeraeteTyp })}
-                    label="Gerätetyp"
-                  >
-                    {geraetetypen.map((typ) => (
-                      <MenuItem key={typ} value={typ}>
-                        {typ}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  freeSolo
+                  options={geraetetypen}
+                  value={neuGeraet.geraetetyp}
+                  onChange={(event, newValue) => {
+                    const geraetetypValue = newValue || '';
+                    setNeuGeraet({ ...neuGeraet, geraetetyp: geraetetypValue as GeraeteTyp });
+                    handleGeraetetypChange(geraetetypValue);
+                    // Hostname automatisch generieren wenn Gerätetyp ausgewählt wird
+                    if (geraetetypValue) {
+                      generiereHostname(geraetetypValue);
+                    }
+                  }}
+                  onInputChange={(event, newInputValue) => {
+                    setNeuGeraet({ ...neuGeraet, geraetetyp: newInputValue as GeraeteTyp });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Gerätetyp"
+                      required
+                      helperText="Auswählen oder neuen Typ eingeben"
+                    />
+                  )}
+                />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Hostname"
+                  fullWidth
+                  variant="outlined"
+                  value={neuGeraet.hostname}
+                  onChange={(e) => setNeuGeraet({ ...neuGeraet, hostname: e.target.value })}
+                  placeholder="Automatisch generiert"
+                  helperText="Wird automatisch basierend auf Standort und Gerätetyp generiert"
+                  InputProps={{
+                    endAdornment: neuGeraet.geraetetyp && (
+                      <Button
+                        size="small"
+                        onClick={() => generiereHostname(neuGeraet.geraetetyp)}
+                        sx={{ minWidth: 'auto', px: 1 }}
+                      >
+                        🔄
+                      </Button>
+                    )
+                  }}
+                />
               </Grid>
               
               <Grid item xs={12} sm={6}>
@@ -814,72 +2002,12 @@ const GeraeteVerwaltung: React.FC = () => {
                 />
               </Grid>
 
-              {/* IP-Konfiguration */}
+              {/* Netzwerk-Konfiguration */}
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                   Netzwerk-Konfiguration
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">IP-Adress-Typ</FormLabel>
-                  <RadioGroup
-                    row
-                    value={neuGeraet.ipKonfiguration.typ}
-                    onChange={(e) => setNeuGeraet({
-                      ...neuGeraet,
-                      ipKonfiguration: { ...neuGeraet.ipKonfiguration, typ: e.target.value as 'dhcp' | 'statisch' }
-                    })}
-                  >
-                    <FormControlLabel value="dhcp" control={<Radio />} label="DHCP" />
-                    <FormControlLabel value="statisch" control={<Radio />} label="Statische IP" />
-                  </RadioGroup>
-                </FormControl>
-              </Grid>
-              
-              {neuGeraet.ipKonfiguration.typ === 'statisch' && (
-                <>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="IP-Adresse"
-                      fullWidth
-                      variant="outlined"
-                      placeholder="192.168.1.100"
-                      value={neuGeraet.ipKonfiguration.ipAdresse}
-                      onChange={(e) => setNeuGeraet({
-                        ...neuGeraet,
-                        ipKonfiguration: { ...neuGeraet.ipKonfiguration, ipAdresse: e.target.value }
-                      })}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Netzwerkbereich"
-                      fullWidth
-                      variant="outlined"
-                      placeholder="192.168.1.0/24"
-                      value={neuGeraet.ipKonfiguration.netzwerkbereich}
-                      onChange={(e) => setNeuGeraet({
-                        ...neuGeraet,
-                        ipKonfiguration: { ...neuGeraet.ipKonfiguration, netzwerkbereich: e.target.value }
-                      })}
-                    />
-                  </Grid>
-                </>
-              )}
-              
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="MAC-Adresse"
-                  fullWidth
-                  variant="outlined"
-                  placeholder="00:11:22:33:44:55"
-                  value={neuGeraet.macAdresse}
-                  onChange={(e) => setNeuGeraet({ ...neuGeraet, macAdresse: e.target.value })}
-                />
               </Grid>
               
               <Grid item xs={12} sm={6}>
@@ -891,15 +2019,38 @@ const GeraeteVerwaltung: React.FC = () => {
                   value={neuGeraet.anzahlNetzwerkports}
                   onChange={(e) => {
                     const anzahl = parseInt(e.target.value) || 0;
-                    const neuePortKonfiguration = generierePortKonfiguration(anzahl, false, neuGeraet.portKonfiguration);
+                    const neuePortKonfiguration = generierePortKonfiguration(anzahl);
                     setNeuGeraet({ 
                       ...neuGeraet, 
                       anzahlNetzwerkports: anzahl,
-                      portKonfiguration: neuePortKonfiguration
+                      portKonfiguration: neuePortKonfiguration,
+                      // IP-Konfigurationen zurücksetzen wenn keine Ports
+                      ipKonfigurationen: anzahl === 0 ? [] : neuGeraet.ipKonfigurationen
                     });
                   }}
                   inputProps={{ min: 0, max: 48 }}
+                  helperText="0 = keine IP-Konfiguration möglich"
                 />
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="MAC-Adresse"
+                  fullWidth
+                  variant="outlined"
+                  placeholder="00:11:22:33:44:55"
+                  value={neuGeraet.macAdresse}
+                  onChange={(e) => setNeuGeraet({ ...neuGeraet, macAdresse: e.target.value })}
+                />
+              </Grid>
+
+              {/* Neue IP-Konfiguration UI */}
+              <Grid item xs={12}>
+                {renderIPKonfigurationUI(
+                  neuGeraet.ipKonfigurationen,
+                  (configs) => setNeuGeraet({ ...neuGeraet, ipKonfigurationen: configs }),
+                  neuGeraet.anzahlNetzwerkports
+                )}
               </Grid>
 
               {/* Bemerkungen */}
@@ -926,90 +2077,13 @@ const GeraeteVerwaltung: React.FC = () => {
                     <Divider sx={{ mb: 2 }} />
                   </Grid>
 
+                  {/* Neue erweiterte öffentliche IP-Konfiguration */}
                   <Grid item xs={12}>
-                    <FormControlLabel
-                      control={
-                        <input
-                          type="checkbox"
-                          checked={neuGeraet.hatOeffentlicheIp}
-                          onChange={(e) => setNeuGeraet({ ...neuGeraet, hatOeffentlicheIp: e.target.checked })}
-                          style={{ 
-                            accentColor: darkMode ? '#90caf9' : '#1976d2',
-                            transform: 'scale(1.2)'
-                          }}
-                        />
-                      }
-                      label="Hat öffentliche IP-Adresse"
-                    />
+                    {renderOeffentlicheIPKonfigurationUI(
+                      neuGeraet.oeffentlicheIPKonfigurationen,
+                      (configs) => setNeuGeraet({ ...neuGeraet, oeffentlicheIPKonfigurationen: configs })
+                    )}
                   </Grid>
-
-                  {neuGeraet.hatOeffentlicheIp && (
-                    <>
-                      <Grid item xs={12}>
-                        <FormControl component="fieldset">
-                          <FormLabel component="legend">Öffentliche IP-Typ</FormLabel>
-                          <RadioGroup
-                            row
-                            value={neuGeraet.oeffentlicheIpTyp}
-                            onChange={(e) => setNeuGeraet({
-                              ...neuGeraet,
-                              oeffentlicheIpTyp: e.target.value as 'dynamisch' | 'statisch'
-                            })}
-                          >
-                            <FormControlLabel value="dynamisch" control={<Radio />} label="Dynamische IP" />
-                            <FormControlLabel value="statisch" control={<Radio />} label="Statische IP" />
-                          </RadioGroup>
-                        </FormControl>
-                      </Grid>
-
-                      {neuGeraet.oeffentlicheIpTyp === 'dynamisch' && (
-                        <>
-                          <Grid item xs={12}>
-                            <FormControlLabel
-                              control={
-                                <input
-                                  type="checkbox"
-                                  checked={neuGeraet.dyndnsAktiv}
-                                  onChange={(e) => setNeuGeraet({ ...neuGeraet, dyndnsAktiv: e.target.checked })}
-                                  style={{ 
-                                    accentColor: darkMode ? '#90caf9' : '#1976d2',
-                                    transform: 'scale(1.2)'
-                                  }}
-                                />
-                              }
-                              label="DynDNS verwenden"
-                            />
-                          </Grid>
-
-                          {neuGeraet.dyndnsAktiv && (
-                            <Grid item xs={12}>
-                              <TextField
-                                label="DynDNS-Adresse"
-                                fullWidth
-                                variant="outlined"
-                                placeholder="beispiel.dyndns.org"
-                                value={neuGeraet.dyndnsAdresse}
-                                onChange={(e) => setNeuGeraet({ ...neuGeraet, dyndnsAdresse: e.target.value })}
-                              />
-                            </Grid>
-                          )}
-                        </>
-                      )}
-
-                      {neuGeraet.oeffentlicheIpTyp === 'statisch' && (
-                        <Grid item xs={12}>
-                          <TextField
-                            label="Statische öffentliche IP-Adresse"
-                            fullWidth
-                            variant="outlined"
-                            placeholder="203.0.113.1"
-                            value={neuGeraet.statischeOeffentlicheIp}
-                            onChange={(e) => setNeuGeraet({ ...neuGeraet, statischeOeffentlicheIp: e.target.value })}
-                          />
-                        </Grid>
-                      )}
-                    </>
-                  )}
                 </>
               )}
 
@@ -1420,6 +2494,29 @@ const GeraeteVerwaltung: React.FC = () => {
 
                 <Grid item xs={12} sm={6}>
                   <TextField
+                    label="Hostname"
+                    fullWidth
+                    variant="outlined"
+                    value={selectedGeraet.hostname || ''}
+                    onChange={(e) => setSelectedGeraet({ ...selectedGeraet, hostname: e.target.value })}
+                    placeholder="Automatisch generiert"
+                    helperText="Wird automatisch basierend auf Standort und Gerätetyp generiert"
+                    InputProps={{
+                      endAdornment: selectedGeraet.geraetetyp && (
+                        <Button
+                          size="small"
+                          onClick={() => generiereHostnameForEdit(selectedGeraet.geraetetyp)}
+                          sx={{ minWidth: 'auto', px: 1 }}
+                        >
+                          🔄
+                        </Button>
+                      )
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
                     label="Standort/Raum"
                     fullWidth
                     variant="outlined"
@@ -1431,20 +2528,31 @@ const GeraeteVerwaltung: React.FC = () => {
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Gerätetyp</InputLabel>
-                    <Select
-                      value={selectedGeraet.geraetetyp}
-                      onChange={(e) => setSelectedGeraet({ ...selectedGeraet, geraetetyp: e.target.value as GeraeteTyp })}
-                      label="Gerätetyp"
-                    >
-                      {geraetetypen.map((typ) => (
-                        <MenuItem key={typ} value={typ}>
-                          {typ}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    freeSolo
+                    options={geraetetypen}
+                    value={selectedGeraet.geraetetyp}
+                                      onChange={(event, newValue) => {
+                    const geraetetypValue = newValue || '';
+                    setSelectedGeraet({ ...selectedGeraet, geraetetyp: geraetetypValue as GeraeteTyp });
+                    handleGeraetetypChange(geraetetypValue);
+                    // Hostname automatisch regenerieren wenn Gerätetyp geändert wird (nur wenn noch kein Hostname vorhanden)
+                    if (geraetetypValue && !selectedGeraet.hostname) {
+                      generiereHostnameForEdit(geraetetypValue);
+                    }
+                  }}
+                    onInputChange={(event, newInputValue) => {
+                      setSelectedGeraet({ ...selectedGeraet, geraetetyp: newInputValue as GeraeteTyp });
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Gerätetyp"
+                        required
+                        helperText="Auswählen oder neuen Typ eingeben"
+                      />
+                    )}
+                  />
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
@@ -1468,81 +2576,12 @@ const GeraeteVerwaltung: React.FC = () => {
                   />
                 </Grid>
 
-                {/* IP-Konfiguration */}
+                {/* Netzwerk-Konfiguration */}
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                     Netzwerk-Konfiguration
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <FormControl component="fieldset">
-                    <FormLabel component="legend">IP-Adress-Typ</FormLabel>
-                    <RadioGroup
-                      row
-                      value={selectedGeraet.ipKonfiguration?.typ || 'dhcp'}
-                      onChange={(e) => setSelectedGeraet({
-                        ...selectedGeraet,
-                        ipKonfiguration: { 
-                          ...selectedGeraet.ipKonfiguration, 
-                          typ: e.target.value as 'dhcp' | 'statisch' 
-                        }
-                      })}
-                    >
-                      <FormControlLabel value="dhcp" control={<Radio />} label="DHCP" />
-                      <FormControlLabel value="statisch" control={<Radio />} label="Statische IP" />
-                    </RadioGroup>
-                  </FormControl>
-                </Grid>
-                
-                {selectedGeraet.ipKonfiguration?.typ === 'statisch' && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="IP-Adresse"
-                        fullWidth
-                        variant="outlined"
-                        placeholder="192.168.1.100"
-                        value={selectedGeraet.ipKonfiguration?.ipAdresse || ''}
-                        onChange={(e) => setSelectedGeraet({
-                          ...selectedGeraet,
-                          ipKonfiguration: { 
-                            ...selectedGeraet.ipKonfiguration, 
-                            ipAdresse: e.target.value 
-                          }
-                        })}
-                      />
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Netzwerkbereich"
-                        fullWidth
-                        variant="outlined"
-                        placeholder="192.168.1.0/24"
-                        value={selectedGeraet.ipKonfiguration?.netzwerkbereich || ''}
-                        onChange={(e) => setSelectedGeraet({
-                          ...selectedGeraet,
-                          ipKonfiguration: { 
-                            ...selectedGeraet.ipKonfiguration, 
-                            netzwerkbereich: e.target.value 
-                          }
-                        })}
-                      />
-                    </Grid>
-                  </>
-                )}
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="MAC-Adresse"
-                    fullWidth
-                    variant="outlined"
-                    placeholder="00:11:22:33:44:55"
-                    value={selectedGeraet.macAdresse || ''}
-                    onChange={(e) => setSelectedGeraet({ ...selectedGeraet, macAdresse: e.target.value })}
-                  />
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
@@ -1558,6 +2597,8 @@ const GeraeteVerwaltung: React.FC = () => {
                       setSelectedGeraet({ 
                         ...selectedGeraet, 
                         anzahlNetzwerkports: anzahl,
+                        // IP-Konfigurationen zurücksetzen wenn keine Ports
+                        ipKonfigurationen: anzahl === 0 ? [] : selectedGeraet.ipKonfigurationen || [],
                         belegteports: neuePortKonfiguration.map(p => ({
                           portNummer: p.portNummer,
                           portTyp: p.portTyp,
@@ -1569,7 +2610,28 @@ const GeraeteVerwaltung: React.FC = () => {
                       });
                     }}
                     inputProps={{ min: 0, max: 48 }}
+                    helperText="0 = keine IP-Konfiguration möglich"
                   />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="MAC-Adresse"
+                    fullWidth
+                    variant="outlined"
+                    placeholder="00:11:22:33:44:55"
+                    value={selectedGeraet.macAdresse || ''}
+                    onChange={(e) => setSelectedGeraet({ ...selectedGeraet, macAdresse: e.target.value })}
+                  />
+                </Grid>
+
+                {/* Neue IP-Konfiguration UI */}
+                <Grid item xs={12}>
+                  {renderIPKonfigurationUI(
+                    selectedGeraet.ipKonfigurationen || [],
+                    (configs) => setSelectedGeraet({ ...selectedGeraet, ipKonfigurationen: configs }),
+                    selectedGeraet.anzahlNetzwerkports
+                  )}
                 </Grid>
 
                 {/* Bemerkungen */}

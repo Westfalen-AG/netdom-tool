@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Paper,
   Typography,
@@ -32,12 +32,14 @@ import {
   Cable as CableIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import { Geraet, Standort, Kabeltyp } from '../types';
+import { StandortContext } from '../App';
 
 const VerbindungsVerwaltung: React.FC = () => {
-  const [standorte, setStandorte] = useState<Standort[]>([]);
-  const [selectedStandort, setSelectedStandort] = useState<string>('');
+  const { selectedStandort, selectedStandortData } = useContext(StandortContext);
+  
   const [verbindungen, setVerbindungen] = useState<any[]>([]);
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [kabeltypen, setKabeltypen] = useState<string[]>([]);
@@ -61,18 +63,6 @@ const VerbindungsVerwaltung: React.FC = () => {
   });
 
   // Daten laden
-  const ladeStandorte = async () => {
-    try {
-      const response = await fetch('/api/standorte');
-      const data = await response.json();
-      if (data.success) {
-        setStandorte(data.data);
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Standorte:', err);
-    }
-  };
-
   const ladeKabeltypen = async () => {
     try {
       const response = await fetch('/api/kabeltypen');
@@ -120,7 +110,7 @@ const VerbindungsVerwaltung: React.FC = () => {
   const erstelleVerbindung = async () => {
     try {
       if (!selectedStandort) {
-        setError('Bitte wählen Sie zuerst einen Standort aus');
+        setError('Kein Standort ausgewählt');
         return;
       }
 
@@ -290,7 +280,6 @@ const VerbindungsVerwaltung: React.FC = () => {
   };
 
   useEffect(() => {
-    ladeStandorte();
     ladeKabeltypen();
   }, []);
 
@@ -301,6 +290,22 @@ const VerbindungsVerwaltung: React.FC = () => {
     }
   }, [selectedStandort]);
 
+  if (!selectedStandort) {
+    return (
+      <Box>
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <LocationIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h5" component="h1" gutterBottom>
+            Kein Standort ausgewählt
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bitte wählen Sie einen Standort in der oberen Navigationsleiste aus, um Verbindungen zu verwalten.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -308,37 +313,21 @@ const VerbindungsVerwaltung: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Verbindungs-Verwaltung
+              Verbindungs-Verwaltung: {selectedStandortData?.name}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Verwalten Sie alle Kabelverbindungen zwischen Ihren Geräten
+              Verwalten Sie alle Kabelverbindungen zwischen den Geräten am ausgewählten Standort
             </Typography>
           </Box>
-          <Box display="flex" alignItems="center" gap={2}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Standort auswählen</InputLabel>
-              <Select
-                value={selectedStandort}
-                onChange={(e) => setSelectedStandort(e.target.value)}
-                label="Standort auswählen"
-              >
-                {standorte.map((standort) => (
-                  <MenuItem key={standort.id} value={standort.id}>
-                    {standort.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-              disabled={!selectedStandort || geraete.length < 2}
-              size="large"
-            >
-              Neue Verbindung
-            </Button>
-          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+            disabled={geraete.length < 2}
+            size="large"
+          >
+            Neue Verbindung
+          </Button>
         </Box>
       </Paper>
 
@@ -357,10 +346,10 @@ const VerbindungsVerwaltung: React.FC = () => {
       )}
 
       {/* Verbindungen-Tabelle */}
-      {selectedStandort && !loading && (
+      {!loading && (
         <Paper elevation={2} sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Verbindungen am Standort: {standorte.find(s => s.id === selectedStandort)?.name}
+            Verbindungen am Standort: {selectedStandortData?.name}
           </Typography>
           
           {verbindungen.length === 0 ? (

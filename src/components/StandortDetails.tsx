@@ -512,8 +512,8 @@ const StandortDetails: React.FC = () => {
                         {router.name} ({router.modell})
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        LAN: {router.ipKonfiguration.ipAdresse || 
-                             (router.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
+                        LAN: {router.ipKonfiguration?.ipAdresse || 
+                             (router.ipKonfiguration?.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
                       </Typography>
                       {/* Öffentliche IP-Informationen anzeigen */}
                       {router.hatOeffentlicheIp && (
@@ -556,8 +556,8 @@ const StandortDetails: React.FC = () => {
                         {gateway.name} ({gateway.modell})
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {gateway.ipKonfiguration.ipAdresse || 
-                         (gateway.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
+                        {gateway.ipKonfiguration?.ipAdresse || 
+                         (gateway.ipKonfiguration?.typ === 'dhcp' ? 'DHCP' : 'IP nicht konfiguriert')}
                         {gateway.anzahlNetzwerkports > 0 && (
                           <span> • {gateway.anzahlNetzwerkports} Ports</span>
                         )}
@@ -644,8 +644,8 @@ const StandortDetails: React.FC = () => {
                           </TableCell>
                           <TableCell>{geraet.modell}</TableCell>
                           <TableCell>
-                            {geraet.ipKonfiguration.ipAdresse || 
-                             (geraet.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : '-')}
+                            {geraet.ipKonfiguration?.ipAdresse || 
+                             (geraet.ipKonfiguration?.typ === 'dhcp' ? 'DHCP' : '-')}
                           </TableCell>
                           {typ === 'Router' && (
                             <TableCell>

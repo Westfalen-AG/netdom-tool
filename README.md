@@ -2,15 +2,17 @@
 
 Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur an OnSite-Anlagen der Westfalen AG.
 
-**Version:** 1.4.0  
-**Letztes Update:** Januar 2025  
+**Version:** 1.5.0  
+**Letztes Update:** Juli 2025  
 **Support:** Niklas Terhorst (n.terhorst@westfalen.com oder Teams)
 
 ## 🚀 Funktionen
 
 ### Kernfeatures
-- **Standortverwaltung**: Verwaltung aller OnSite-Anlagen mit Details zu Standorten, Adressen und Ansprechpartnern
-- **Geräte-Management**: Erfassung aller Netzwerkgeräte mit IP-Konfiguration, Ports, technischen Details und Standort-Informationen
+- **Standortverwaltung**: Verwaltung aller OnSite-Anlagen mit Details zu Standorten, Adressen, Ansprechpartnern und Hostname-Präfixen
+- **Automatisches Hostname-System**: Intelligente Generierung eindeutiger Geräte-Hostnamen basierend auf Standort und Gerätetyp
+- **Gerätetyp-Verwaltung**: Vollständige Konfiguration von Gerätetypen mit Hostname-Präfixen, Icons und Farben
+- **Geräte-Management**: Erfassung aller Netzwerkgeräte mit IP-Konfiguration, Ports, automatischen Hostnamen und technischen Details
 - **Verbindungsdokumentation**: Vollständige Dokumentation aller Kabelverbindungen (RJ45, SFP/SFP+, Coax, etc.)
 - **Switch-Stack-Verwaltung**: Konfiguration und Verwaltung von Switch-Stacks mit Stack-Mitgliedern
 - **Rack-Visualisierung**: Interaktive Darstellung der Geräte-Platzierung in Serverschränken
@@ -19,7 +21,22 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **Changelog**: Vollständige Versionshistorie mit detaillierten Änderungen
 - **Dark/Light Mode**: Benutzerfreundliche Themes für verschiedene Arbeitsumgebungen
 
-### Neue Features in Version 1.4.0
+### Neue Features in Version 1.5.0
+- **Automatisches Hostname-System**: Intelligente Hostname-Generierung basierend auf Standort und Gerätetyp
+  - Format: [StandortPrefix][GeraetetypPrefix][3-stellige-Nummer] (z.B. DELIN2CM001 für Kamera #001 in Lingen 2)
+  - Automatische Nummernvergabe mit Gap-Detection (wiederverwendung gelöschter Nummern)
+  - Manueller Refresh-Button für nachträgliche Hostname-Aktualisierung
+- **Gerätetyp-Verwaltung**: Vollständige Verwaltung von Gerätetypen mit konfigurierbaren Hostname-Präfixen
+  - 16 vordefinierte Gerätetypen (CM, SW, FW, AP, etc.) mit Standard-Präfixen
+  - Benutzerfreundliche Oberfläche zum Hinzufügen, Bearbeiten und Deaktivieren von Gerätetypen
+  - Icon- und Farbkonfiguration für visuelle Darstellung
+- **Hostname-Präfix-Konfiguration**: Standort-spezifische Hostname-Präfixe (z.B. DELIN2, MELLE1)
+- **Code-Bereinigung**: Entfernung ungenutzter Legacy-Komponenten für bessere Performance
+  - Unverwendete Uplinks-Tabelle und APIs entfernt (ersetzt durch automatische Router/SD-WAN Erkennung)
+  - Debug-APIs und unverwendete TypeScript-Interfaces entfernt
+  - Datenbankschema optimiert durch Entfernung ungenutzter Tabellen
+
+### Features aus Version 1.4.0
 - **Router-öffentliche IP-Verwaltung**: Vollständige Konfiguration von öffentlichen IP-Adressen für Router
   - Checkbox für "Hat öffentliche IP-Adresse"
   - Auswahl zwischen dynamischer und statischer IP
@@ -143,37 +160,47 @@ westfalen-network-tool/
 3. Geben Sie Name (z.B. DELIN1), Adresse und Ansprechpartner ein
 4. Fügen Sie verfügbare Uplinks hinzu
 
-### 2. Geräte hinzufügen
+### 2. Gerätetypen konfigurieren (optional)
+1. Navigieren Sie zu "Gerätetyp-Verwaltung" 
+2. Passen Sie vordefinierte Gerätetypen an oder erstellen Sie neue:
+   - Hostname-Präfix (z.B. CM für Kameras, SW für Switches)
+   - Icon und Farbe für visuelle Darstellung
+   - Aktivierung/Deaktivierung von Gerätetypen
+3. 16 Standard-Gerätetypen sind bereits vorkonfiguriert
+
+### 3. Geräte hinzufügen
 1. Wählen Sie einen Standort aus
 2. Navigieren Sie zu "Geräte-Verwaltung"
 3. Erstellen Sie neue Geräte mit:
    - Name und Gerätetyp
+   - **Automatischer Hostname-Generierung** (z.B. DELIN2CM001)
    - IP-Konfiguration (DHCP/statisch)
    - Anzahl Netzwerkports
    - Rack-Position (optional)
    - Standort-Details (Raum, Container, etc.)
    - Bemerkungen für zusätzliche Informationen
    - **Für Router**: Öffentliche IP-Konfiguration (statisch/dynamisch mit DynDNS-Unterstützung)
+4. **Hostname-Refresh**: Nutzen Sie den 🔄-Button für nachträgliche Hostname-Aktualisierung
 
-### 3. Switch-Stacks konfigurieren
+### 4. Switch-Stacks konfigurieren
 1. Navigieren Sie zu "Switch-Stack-Verwaltung"
 2. Erstellen Sie neue Switch-Stacks
 3. Fügen Sie Stack-Mitglieder hinzu
 4. Konfigurieren Sie Stack-spezifische Einstellungen
 
-### 4. Verbindungen dokumentieren
+### 5. Verbindungen dokumentieren
 1. Wählen Sie "Verbindungs-Verwaltung"
 2. Erstellen Sie Verbindungen zwischen Geräten
 3. Definieren Sie Kabeltyp, Länge und weitere Eigenschaften
 4. Ports werden automatisch als belegt markiert
 
-### 5. Netzwerkdiagramm erstellen
+### 6. Netzwerkdiagramm erstellen
 1. Navigieren Sie zu "Netzwerkdiagramm"
 2. Wählen Sie einen Standort aus
 3. Arrangieren Sie Geräte per Drag & Drop
 4. Speichern Sie Positionen für zukünftige Ansichten
 
-### 6. Export-Funktionen nutzen
+### 7. Export-Funktionen nutzen
 1. Navigieren Sie zu "Export"
 2. Wählen Sie einen Standort aus
 3. Konfigurieren Sie Export-Optionen:
@@ -194,10 +221,23 @@ westfalen-network-tool/
 
 ### Geräte
 - `GET /api/standorte/:standortId/geraete` - Geräte eines Standorts
-- `POST /api/standorte/:standortId/geraete` - Neues Gerät erstellen
+- `POST /api/standorte/:standortId/geraete` - Neues Gerät erstellen (mit automatischer Hostname-Generierung)
 - `PUT /api/geraete/:id` - Gerät aktualisieren
 - `PUT /api/geraete/:id/position` - Geräteposition aktualisieren
 - `DELETE /api/geraete/:id` - Gerät löschen
+
+### Gerätetypen
+- `GET /api/geraetetypen` - Aktive Gerätetypen abrufen
+- `GET /api/geraetetypen/alle` - Alle Gerätetypen abrufen (auch inaktive)
+- `GET /api/geraetetypen/:id` - Einzelnen Gerätetyp abrufen
+- `POST /api/geraetetypen` - Neuen Gerätetyp erstellen
+- `PUT /api/geraetetypen/:id` - Gerätetyp aktualisieren
+- `DELETE /api/geraetetypen/:id` - Gerätetyp löschen
+- `POST /api/geraetetypen/auto-create` - Standard-Gerätetypen automatisch erstellen
+
+### Hostname-System
+- `POST /api/hostname/generate` - Hostname für Gerät generieren
+- `POST /api/hostname/check` - Hostname-Verfügbarkeit prüfen
 
 ### Verbindungen
 - `GET /api/standorte/:standortId/verbindungen` - Verbindungen eines Standorts

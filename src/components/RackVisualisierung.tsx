@@ -1153,8 +1153,8 @@ const RackVisualisierung: React.FC<RackVisualisierungProps> = ({ geraete, stando
                     IP-Konfiguration
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    LAN: {selectedGeraet!.ipKonfiguration.ipAdresse || 
-                         (selectedGeraet!.ipKonfiguration.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
+                    LAN: {selectedGeraet!.ipKonfiguration?.ipAdresse || 
+                         (selectedGeraet!.ipKonfiguration?.typ === 'dhcp' ? 'DHCP' : 'Nicht konfiguriert')}
                   </Typography>
                   {/* Router öffentliche IP */}
                   {selectedGeraet!.geraetetyp === 'Router' && selectedGeraet!.hatOeffentlicheIp && (

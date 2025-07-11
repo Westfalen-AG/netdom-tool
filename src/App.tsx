@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -15,6 +15,10 @@ import {
   Switch,
   FormControlLabel,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -31,6 +35,7 @@ import {
   People as PeopleIcon,
   Dns as ModemIcon,
   History as HistoryIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 
 // Komponenten importieren
@@ -38,14 +43,18 @@ import StandortUebersicht from './components/StandortUebersicht';
 import StandortDetails from './components/StandortDetails';
 import AnsprechpartnerVerwaltung from './components/AnsprechpartnerVerwaltung';
 import GeraeteVerwaltung from './components/GeraeteVerwaltung';
+import GeraetetypVerwaltung from './components/GeraetetypVerwaltung';
 import VerbindungsVerwaltung from './components/VerbindungsVerwaltung';
 import NetzwerkDiagramm from './components/NetzwerkDiagramm';
 import ExportBereich from './components/ExportBereich';
 import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
 
+// Types importieren
+import { Standort } from './types';
+
 const DRAWER_WIDTH = 240;
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 // Westfalen AG Theme-Konfiguration
 const getWestfalenTheme = (darkMode: boolean) => createTheme({
@@ -159,6 +168,14 @@ const ThemeContext = createContext({
   toggleDarkMode: () => {},
 });
 
+// Standort Context
+const StandortContext = createContext({
+  standorte: [] as Standort[],
+  selectedStandort: '',
+  setSelectedStandort: (standortId: string) => {},
+  selectedStandortData: null as Standort | null,
+});
+
 const App: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -166,8 +183,51 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : false;
   });
   
+  // Standort-State
+  const [standorte, setStandorte] = useState<Standort[]>([]);
+  const [selectedStandort, setSelectedStandort] = useState<string>(() => {
+    return localStorage.getItem('westfalen-selected-standort') || '';
+  });
+  
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Standorte laden
+  const ladeStandorte = async () => {
+    try {
+      const response = await fetch('/api/standorte');
+      const data = await response.json();
+      if (data.success) {
+        setStandorte(data.data);
+        // Wenn noch kein Standort ausgewählt ist und es Standorte gibt, den ersten auswählen
+        if (!selectedStandort && data.data.length > 0) {
+          setSelectedStandort(data.data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Standorte:', err);
+    }
+  };
+
+  // Standorte beim App-Start laden
+  useEffect(() => {
+    ladeStandorte();
+  }, []);
+
+  // Ausgewählten Standort in localStorage speichern
+  useEffect(() => {
+    if (selectedStandort) {
+      localStorage.setItem('westfalen-selected-standort', selectedStandort);
+    }
+  }, [selectedStandort]);
+
+  // Standort-Änderung Handler
+  const handleStandortChange = (standortId: string) => {
+    setSelectedStandort(standortId);
+  };
+
+  // Aktuell ausgewähltes Standort-Objekt finden
+  const selectedStandortData = standorte.find(s => s.id === selectedStandort) || null;
 
   const toggleDarkMode = () => {
     const newMode = !darkMode;
@@ -182,6 +242,7 @@ const App: React.FC = () => {
     { text: 'Standorte', icon: <LocationIcon />, path: '/standorte' },
     { text: 'Ansprechpartner', icon: <PeopleIcon />, path: '/ansprechpartner' },
     { text: 'Geräte', icon: <RouterIcon />, path: '/geraete' },
+    { text: 'Gerätetypen', icon: <CategoryIcon />, path: '/geraetetypen' },
     { text: 'Verbindungen', icon: <CableIcon />, path: '/verbindungen' },
     { text: 'Switch-Stacks', icon: <ModemIcon />, path: '/stacks' },
     { text: 'Netzwerkdiagramm', icon: <DiagramIcon />, path: '/diagramm' },
@@ -194,70 +255,134 @@ const App: React.FC = () => {
     setDrawerOpen(false);
   };
 
+  const standortContextValue = {
+    standorte,
+    selectedStandort,
+    setSelectedStandort: handleStandortChange,
+    selectedStandortData,
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
-        <Box sx={{ display: 'flex' }}>
-          {/* App Bar */}
-          <AppBar
-            position="fixed"
-            sx={{
-              zIndex: (theme) => theme.zIndex.drawer + 1,
-            }}
-          >
-            <Toolbar>
-              <IconButton
-                color="inherit"
-                aria-label="menu öffnen"
-                edge="start"
-                onClick={() => setDrawerOpen(!drawerOpen)}
-                sx={{ mr: 2 }}
-              >
-                <MenuIcon />
-              </IconButton>
-              
-              {/* Westfalen Logo */}
-              <Box 
-                sx={{ 
-                  mr: 2, 
-                  display: 'flex', 
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.8
-                  }
-                }}
-                onClick={() => navigate('/standorte')}
-              >
-                <img
-                  src={darkMode ? "/logo_schrift_weiss.png" : "/logo_schrift_weiss.png"}
-                  alt="Westfalen AG"
-                  style={{ height: '32px', width: 'auto' }}
-                />
-              </Box>
-              
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6" noWrap component="div">
-                  Network Documentation Tool
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', lineHeight: 1 }}>
-                  OnSite Anlagen Management
-                </Typography>
-              </Box>
-              
-              {/* Dark Mode Toggle */}
-              <Tooltip title={darkMode ? "Hell-Modus aktivieren" : "Dunkel-Modus aktivieren"}>
+        <StandortContext.Provider value={standortContextValue}>
+          <Box sx={{ display: 'flex' }}>
+            {/* App Bar */}
+            <AppBar
+              position="fixed"
+              sx={{
+                zIndex: (theme) => theme.zIndex.drawer + 1,
+              }}
+            >
+              <Toolbar>
                 <IconButton
                   color="inherit"
-                  onClick={toggleDarkMode}
-                  sx={{ ml: 1 }}
+                  aria-label="menu öffnen"
+                  edge="start"
+                  onClick={() => setDrawerOpen(!drawerOpen)}
+                  sx={{ mr: 2 }}
                 >
-                  {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+                  <MenuIcon />
                 </IconButton>
-              </Tooltip>
-            </Toolbar>
-          </AppBar>
+                
+                {/* Westfalen Logo */}
+                <Box 
+                  sx={{ 
+                    mr: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 0.8
+                    }
+                  }}
+                  onClick={() => navigate('/standorte')}
+                >
+                  <img
+                    src={darkMode ? "/logo_schrift_weiss.png" : "/logo_schrift_weiss.png"}
+                    alt="Westfalen AG"
+                    style={{ height: '32px', width: 'auto' }}
+                  />
+                </Box>
+                
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" noWrap component="div">
+                    Network Documentation Tool
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', lineHeight: 1 }}>
+                    OnSite Anlagen Management
+                  </Typography>
+                </Box>
+                
+                {/* Standortauswahl */}
+                <FormControl 
+                  variant="outlined" 
+                  size="small" 
+                  sx={{ 
+                    mr: 2, 
+                    minWidth: 200,
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'white',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: 'white',
+                    },
+                    '& .MuiSelect-icon': {
+                      color: 'white',
+                    },
+                  }}
+                >
+                  <InputLabel id="standort-select-label">Standort</InputLabel>
+                  <Select
+                    labelId="standort-select-label"
+                    value={selectedStandort}
+                    onChange={(e) => handleStandortChange(e.target.value)}
+                    label="Standort"
+                    displayEmpty
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          backgroundColor: darkMode ? '#1e293b' : '#ffffff',
+                          '& .MuiMenuItem-root': {
+                            color: darkMode ? '#f1f5f9' : '#1a202c',
+                          },
+                        },
+                      },
+                    }}
+                  >
+                    {standorte.map((standort) => (
+                      <MenuItem key={standort.id} value={standort.id}>
+                        {standort.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                {/* Dark Mode Toggle */}
+                <Tooltip title={darkMode ? "Hell-Modus aktivieren" : "Dunkel-Modus aktivieren"}>
+                  <IconButton
+                    color="inherit"
+                    onClick={toggleDarkMode}
+                    sx={{ ml: 1 }}
+                  >
+                    {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+                  </IconButton>
+                </Tooltip>
+              </Toolbar>
+            </AppBar>
 
           {/* Navigation Drawer */}
           <Drawer
@@ -348,6 +473,7 @@ const App: React.FC = () => {
                   <Route path="/standorte/:name" element={<StandortDetails />} />
                   <Route path="/ansprechpartner" element={<AnsprechpartnerVerwaltung />} />
                   <Route path="/geraete" element={<GeraeteVerwaltung />} />
+                  <Route path="/geraetetypen" element={<GeraetetypVerwaltung />} />
                   <Route path="/verbindungen" element={<VerbindungsVerwaltung />} />
                   <Route path="/stacks" element={<SwitchStackVerwaltung />} />
                   <Route path="/diagramm" element={<NetzwerkDiagramm />} />
@@ -407,10 +533,11 @@ const App: React.FC = () => {
             </Container>
           </Box>
         </Box>
+        </StandortContext.Provider>
       </ThemeContext.Provider>
     </ThemeProvider>
   );
 };
 
 export default App;
-export { ThemeContext }; 
+export { ThemeContext, StandortContext }; 

@@ -48,19 +48,7 @@ class Database {
         FOREIGN KEY (ansprechpartner_vor_ort_id) REFERENCES ansprechpartner(id)
       )`,
 
-      // Uplinks Tabelle
-      `CREATE TABLE IF NOT EXISTS uplinks (
-        id TEXT PRIMARY KEY,
-        standort_id TEXT NOT NULL,
-        typ TEXT NOT NULL,
-        anbieter TEXT NOT NULL,
-        download_geschwindigkeit INTEGER,
-        upload_geschwindigkeit INTEGER,
-        oeffentliche_ip_verfuegbar BOOLEAN DEFAULT 0,
-        statische_ip TEXT,
-        bemerkungen TEXT,
-        FOREIGN KEY (standort_id) REFERENCES standorte(id) ON DELETE CASCADE
-      )`,
+
 
       // Geräte Tabelle
       `CREATE TABLE IF NOT EXISTS geraete (
@@ -117,17 +105,7 @@ class Database {
         FOREIGN KEY (ziel_geraet_id) REFERENCES geraete(id) ON DELETE CASCADE
       )`,
 
-      // Netzwerk-Diagramme Tabelle
-      `CREATE TABLE IF NOT EXISTS netzwerk_diagramme (
-        id TEXT PRIMARY KEY,
-        standort_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        typ TEXT CHECK(typ IN ('Netzwerkdiagramm', 'Rack-Diagramm')),
-        einstellungen TEXT, -- JSON String
-        erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (standort_id) REFERENCES standorte(id) ON DELETE CASCADE
-      )`,
+
 
       // Switch-Stacks Tabelle
       `CREATE TABLE IF NOT EXISTS switch_stacks (
@@ -203,11 +181,7 @@ class Database {
            UPDATE geraete SET aktualisiert_am = CURRENT_TIMESTAMP WHERE id = NEW.id;
          END`,
 
-        `CREATE TRIGGER IF NOT EXISTS update_diagramme_timestamp 
-         AFTER UPDATE ON netzwerk_diagramme 
-         BEGIN 
-           UPDATE netzwerk_diagramme SET aktualisiert_am = CURRENT_TIMESTAMP WHERE id = NEW.id;
-         END`,
+
 
         `CREATE TRIGGER IF NOT EXISTS update_stacks_timestamp 
          AFTER UPDATE ON switch_stacks 
@@ -377,8 +351,238 @@ class Database {
         console.log('✓ Spalte statische_oeffentliche_ip hinzugefügt');
       }
     });
+
+    // Migration 9: Hostname-Felder hinzufügen
+    this.db.run(`
+      ALTER TABLE standorte ADD COLUMN hostname_prefix TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration hostname_prefix (standorte):', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte hostname_prefix zu standorte hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraetetypen ADD COLUMN hostname_prefix TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration hostname_prefix (geraetetypen):', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte hostname_prefix zu geraetetypen hinzugefügt');
+      }
+    });
+
+    this.db.run(`
+      ALTER TABLE geraete ADD COLUMN hostname TEXT
+    `, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Fehler bei Migration hostname (geraete):', err.message);
+      } else if (!err) {
+        console.log('✓ Spalte hostname zu geraete hinzugefügt');
+      }
+    });
+
+    // Migration 10: Erweiterte IP-Konfiguration Tabellen erstellen
+    this.createExtendedIPTables();
     
     console.log('Migrationen abgeschlossen.');
+  }
+
+  // Erweiterte IP-Konfiguration Tabellen erstellen
+  createExtendedIPTables() {
+    console.log('Erstelle erweiterte IP-Konfiguration Tabellen...');
+
+    // IP-Konfigurationen Tabelle
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ip_konfigurationen (
+        id TEXT PRIMARY KEY,
+        geraet_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        port_nummer INTEGER NOT NULL,
+        typ TEXT CHECK(typ IN ('dhcp', 'statisch')) NOT NULL,
+        ip_adresse TEXT,
+        netzwerkbereich TEXT NOT NULL,
+        gateway TEXT,
+        dns_server TEXT,
+        prioritaet INTEGER DEFAULT 1,
+        aktiv BOOLEAN DEFAULT 1,
+        bemerkungen TEXT,
+        erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (geraet_id) REFERENCES geraete(id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Fehler beim Erstellen der ip_konfigurationen Tabelle:', err.message);
+      } else {
+        console.log('✓ Tabelle ip_konfigurationen erstellt');
+      }
+    });
+
+    // VLAN-Konfigurationen Tabelle  
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS vlan_konfigurationen (
+        id TEXT PRIMARY KEY,
+        ip_konfiguration_id TEXT NOT NULL,
+        vlan_id INTEGER NOT NULL,
+        vlan_name TEXT,
+        tagged BOOLEAN DEFAULT 0,
+        nac_zugewiesen BOOLEAN DEFAULT 0,
+        bemerkungen TEXT,
+        FOREIGN KEY (ip_konfiguration_id) REFERENCES ip_konfigurationen(id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Fehler beim Erstellen der vlan_konfigurationen Tabelle:', err.message);
+      } else {
+        console.log('✓ Tabelle vlan_konfigurationen erstellt');
+      }
+    });
+
+    // Öffentliche IP-Konfigurationen Tabelle
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS oeffentliche_ip_konfigurationen (
+        id TEXT PRIMARY KEY,
+        geraet_id TEXT NOT NULL,
+        typ TEXT CHECK(typ IN ('einzelip', 'subnet')) NOT NULL,
+        aktiv BOOLEAN DEFAULT 1,
+        bemerkungen TEXT,
+        -- Einzelne IP Felder
+        einzelip_dynamisch BOOLEAN,
+        einzelip_adresse TEXT,
+        einzelip_dyndns_aktiv BOOLEAN,
+        einzelip_dyndns_adresse TEXT,
+        -- Subnet Felder
+        subnet_netzwerkadresse TEXT,
+        subnet_gateway TEXT,
+        erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (geraet_id) REFERENCES geraete(id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Fehler beim Erstellen der oeffentliche_ip_konfigurationen Tabelle:', err.message);
+      } else {
+        console.log('✓ Tabelle oeffentliche_ip_konfigurationen erstellt');
+      }
+    });
+
+    // Öffentliche IPs Tabelle (für Subnet-Konfigurationen)
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS oeffentliche_ips (
+        id TEXT PRIMARY KEY,
+        oeffentliche_ip_konfiguration_id TEXT NOT NULL,
+        ip_adresse TEXT NOT NULL,
+        verwendung TEXT,
+        belegt BOOLEAN DEFAULT 0,
+        bemerkungen TEXT,
+        FOREIGN KEY (oeffentliche_ip_konfiguration_id) REFERENCES oeffentliche_ip_konfigurationen(id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Fehler beim Erstellen der oeffentliche_ips Tabelle:', err.message);
+      } else {
+        console.log('✓ Tabelle oeffentliche_ips erstellt');
+      }
+    });
+
+    // Gerätetypen Tabelle
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS geraetetypen (
+        id TEXT PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        beschreibung TEXT,
+        icon TEXT,
+        farbe TEXT,
+        aktiv BOOLEAN DEFAULT 1,
+        erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Fehler beim Erstellen der geraetetypen Tabelle:', err.message);
+      } else {
+        console.log('✓ Tabelle geraetetypen erstellt');
+        this.populateDefaultGeraetetypen();
+      }
+    });
+
+    // Update-Trigger für neue Tabellen
+    setTimeout(() => {
+      this.db.run(`
+        CREATE TRIGGER IF NOT EXISTS update_ip_konfigurationen_timestamp 
+        AFTER UPDATE ON ip_konfigurationen 
+        BEGIN 
+          UPDATE ip_konfigurationen SET aktualisiert_am = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END
+      `);
+
+      this.db.run(`
+        CREATE TRIGGER IF NOT EXISTS update_oeffentliche_ip_konfigurationen_timestamp 
+        AFTER UPDATE ON oeffentliche_ip_konfigurationen 
+        BEGIN 
+          UPDATE oeffentliche_ip_konfigurationen SET aktualisiert_am = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END
+      `);
+
+      this.db.run(`
+        CREATE TRIGGER IF NOT EXISTS update_geraetetypen_timestamp 
+        AFTER UPDATE ON geraetetypen 
+        BEGIN 
+          UPDATE geraetetypen SET aktualisiert_am = CURRENT_TIMESTAMP WHERE id = NEW.id;
+        END
+      `);
+    }, 500);
+
+    console.log('✓ Erweiterte IP-Konfiguration Tabellen erstellt');
+  }
+
+  // Standard-Gerätetypen populieren
+  populateDefaultGeraetetypen() {
+    const standardGeraetetypen = [
+      { name: 'Router', beschreibung: 'Netzwerk-Router für Routing-Funktionalität', icon: 'router', farbe: '#f44336', hostname_prefix: 'RT' },
+      { name: 'Switch', beschreibung: 'Netzwerk-Switch für Layer 2/3 Switching', icon: 'switch', farbe: '#2196f3', hostname_prefix: 'SW' },
+      { name: 'SD-WAN Gateway', beschreibung: 'Software-Defined WAN Gateway', icon: 'cloud', farbe: '#9c27b0', hostname_prefix: 'GW' },
+      { name: 'Firewall', beschreibung: 'Netzwerk-Firewall für Sicherheit', icon: 'security', farbe: '#ff9800', hostname_prefix: 'FW' },
+      { name: 'Access Point', beschreibung: 'WLAN Access Point', icon: 'wifi', farbe: '#4caf50', hostname_prefix: 'AP' },
+      { name: 'Kamera', beschreibung: 'IP-Überwachungskamera', icon: 'videocam', farbe: '#795548', hostname_prefix: 'CM' },
+      { name: 'VOIP-Phone', beschreibung: 'Voice over IP Telefon', icon: 'phone', farbe: '#607d8b', hostname_prefix: 'PH' },
+      { name: 'Drucker', beschreibung: 'Netzwerk-Drucker', icon: 'print', farbe: '#9e9e9e', hostname_prefix: 'PR' },
+      { name: 'AI-Port', beschreibung: 'KI-Port oder Analogport', icon: 'hub', farbe: '#3f51b5', hostname_prefix: 'AI' },
+      { name: 'NVR', beschreibung: 'Network Video Recorder', icon: 'storage', farbe: '#e91e63', hostname_prefix: 'NV' },
+      { name: 'Zugangskontrolle', beschreibung: 'Zugangskontrollsystem', icon: 'lock', farbe: '#8bc34a', hostname_prefix: 'ZK' },
+      { name: 'Serial Server', beschreibung: 'Serieller Server/Konverter', icon: 'cable', farbe: '#ffc107', hostname_prefix: 'SS' },
+      { name: 'HMI', beschreibung: 'Human Machine Interface', icon: 'monitor', farbe: '#00bcd4', hostname_prefix: 'HM' },
+      { name: 'Server', beschreibung: 'Server-System', icon: 'dns', farbe: '#673ab7', hostname_prefix: 'SV' },
+      { name: 'Sensor', beschreibung: 'IoT-Sensor oder Messgerät', icon: 'sensors', farbe: '#ff5722', hostname_prefix: 'SN' },
+      { name: 'Sonstiges', beschreibung: 'Sonstige Netzwerkgeräte', icon: 'device_unknown', farbe: '#757575', hostname_prefix: 'XX' }
+    ];
+
+    // Prüfen ob bereits Daten vorhanden sind
+    this.db.get('SELECT COUNT(*) as count FROM geraetetypen', (err, row) => {
+      if (err) {
+        console.error('Fehler beim Prüfen der Gerätetypen:', err.message);
+        return;
+      }
+
+      if (row.count === 0) {
+        console.log('Populiere Standard-Gerätetypen...');
+        const { v4: uuidv4 } = require('uuid');
+        
+        for (const typ of standardGeraetetypen) {
+          this.db.run(`
+            INSERT OR IGNORE INTO geraetetypen (id, name, beschreibung, icon, farbe, hostname_prefix, aktiv)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+          `, [uuidv4(), typ.name, typ.beschreibung, typ.icon, typ.farbe, typ.hostname_prefix], (err) => {
+            if (err) {
+              console.error(`Fehler beim Einfügen von Gerätetyp ${typ.name}:`, err.message);
+            }
+          });
+        }
+        console.log('✓ Standard-Gerätetypen populiert');
+      }
+    });
   }
 
   // Promise-basierte Wrapper für Datenbankoperationen

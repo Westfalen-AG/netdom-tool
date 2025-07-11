@@ -1,54 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   Paper,
   Typography,
   Button,
   Grid,
-  Card,
-  CardContent,
-  CardActions,
   Box,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  TextField,
+  CircularProgress,
+  Card,
+  CardContent,
+  CardActions,
   Stepper,
   Step,
   StepLabel,
-  CircularProgress,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Chip,
+  Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Router as RouterIcon,
-  Visibility as ViewIcon,
-  Remove as RemoveIcon,
-  Link as LinkIcon,
-  Delete as DeleteIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as ViewIcon,
+  ExpandMore as ExpandMoreIcon,
+  Cable as CableIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
-import { SwitchStack } from '../types';
+import { SwitchStack, StackMitglied, StackVerbindung } from '../types';
+import { StandortContext } from '../App';
 
 const SwitchStackVerwaltung: React.FC = () => {
-  const [standorte, setStandorte] = useState<any[]>([]);
-  const [selectedStandort, setSelectedStandort] = useState<string>('');
+  const { selectedStandort, selectedStandortData } = useContext(StandortContext);
+  
   const [stacks, setStacks] = useState<SwitchStack[]>([]);
   const [verfuegbareSwitches, setVerfuegbareSwitches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,19 +83,6 @@ const SwitchStackVerwaltung: React.FC = () => {
   });
 
   const steps = ['Stack-Informationen', 'Switches auswählen', 'Stack-Verbindungen konfigurieren'];
-
-  // Standorte laden
-  const ladeStandorte = async () => {
-    try {
-      const response = await fetch('/api/standorte');
-      const data = await response.json();
-      if (data.success) {
-        setStandorte(data.data);
-      }
-    } catch (err) {
-      console.error('Fehler beim Laden der Standorte:', err);
-    }
-  };
 
   // Switch-Stacks laden
   const ladeStacks = async (standortId: string) => {
@@ -337,15 +323,27 @@ const SwitchStackVerwaltung: React.FC = () => {
   };
 
   useEffect(() => {
-    ladeStandorte();
-  }, []);
-
-  useEffect(() => {
     if (selectedStandort) {
       ladeStacks(selectedStandort);
       ladeVerfuegbareSwitches(selectedStandort);
     }
   }, [selectedStandort]);
+
+  if (!selectedStandort) {
+    return (
+      <Box>
+        <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+          <LocationIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h5" component="h1" gutterBottom>
+            Kein Standort ausgewählt
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bitte wählen Sie einen Standort in der oberen Navigationsleiste aus, um Switch-Stacks zu verwalten.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -354,37 +352,20 @@ const SwitchStackVerwaltung: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>
-              Switch-Stack Verwaltung
+              Switch-Stack Verwaltung: {selectedStandortData?.name}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Verwalten Sie Switch-Stacks für redundante Netzwerkinfrastruktur
+              Verwalten Sie Switch-Stacks für redundante Netzwerkinfrastruktur am ausgewählten Standort
             </Typography>
           </Box>
-          <Box display="flex" alignItems="center" gap={2}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Standort auswählen</InputLabel>
-              <Select
-                value={selectedStandort}
-                onChange={(e) => setSelectedStandort(e.target.value)}
-                label="Standort auswählen"
-              >
-                {standorte.map((standort) => (
-                  <MenuItem key={standort.id} value={standort.id}>
-                    {standort.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-              disabled={!selectedStandort}
-              size="large"
-            >
-              Neuer Stack
-            </Button>
-          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+            size="large"
+          >
+            Neuer Stack
+          </Button>
         </Box>
       </Paper>
 
@@ -399,7 +380,7 @@ const SwitchStackVerwaltung: React.FC = () => {
       {selectedStandort && !loading && (
         <Paper elevation={2} sx={{ p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Switch-Stacks am Standort: {standorte.find(s => s.id === selectedStandort)?.name}
+            Switch-Stacks am Standort: {selectedStandortData?.name}
           </Typography>
           
           {stacks.length === 0 ? (
@@ -573,14 +554,12 @@ const SwitchStackVerwaltung: React.FC = () => {
                             primary={`Stack ${mitglied.stackNummer}: ${mitglied.geraet?.name}`}
                             secondary={`${mitglied.geraet?.modell} • ${mitglied.geraet?.anzahlNetzwerkports} Ports`}
                           />
-                          <ListItemSecondaryAction>
-                            <IconButton 
+                          <IconButton 
                               edge="end" 
                               onClick={() => removeSwitchFromStack(mitglied.geraetId)}
                             >
-                              <RemoveIcon />
+                              <DeleteIcon />
                             </IconButton>
-                          </ListItemSecondaryAction>
                         </ListItem>
                       ))}
                     </List>
@@ -601,7 +580,7 @@ const SwitchStackVerwaltung: React.FC = () => {
 
                 <Button 
                   variant="outlined" 
-                  startIcon={<LinkIcon />}
+                  startIcon={<CableIcon />}
                   onClick={addStackVerbindung}
                   sx={{ mb: 2 }}
                   disabled={neuerStack.mitglieder.length < 2}
@@ -746,7 +725,7 @@ const SwitchStackVerwaltung: React.FC = () => {
                               const newVerbindungen = neuerStack.stackVerbindungen.filter((_, i) => i !== index);
                               setNeuerStack({ ...neuerStack, stackVerbindungen: newVerbindungen });
                             }}
-                            startIcon={<RemoveIcon />}
+                            startIcon={<DeleteIcon />}
                           >
                             Verbindung entfernen
                           </Button>
@@ -810,7 +789,8 @@ const SwitchStackVerwaltung: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Stack-Mitglieder
               </Typography>
-              <TableContainer component={Paper} sx={{ mb: 3 }}>
+              {/* This table is now managed by the global StandortContext */}
+              {/* <TableContainer component={Paper} sx={{ mb: 3 }}>
                 <Table>
                   <TableHead>
                     <TableRow>
@@ -831,14 +811,33 @@ const SwitchStackVerwaltung: React.FC = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              </TableContainer> */}
+
+              {selectedStack.mitglieder && selectedStack.mitglieder.length > 0 && (
+                <>
+                  <Typography variant="h6" gutterBottom>
+                    Stack-Mitglieder
+                  </Typography>
+                  <List>
+                    {selectedStack.mitglieder.map((mitglied: any) => (
+                      <ListItem key={mitglied.id}>
+                        <ListItemText
+                          primary={`Stack ${mitglied.stack_nummer}: ${mitglied.geraet_name}`}
+                          secondary={`${mitglied.modell} • ${mitglied.anzahlNetzwerkports} Ports`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
 
               {selectedStack.stackVerbindungen && selectedStack.stackVerbindungen.length > 0 && (
                 <>
                   <Typography variant="h6" gutterBottom>
                     Stack-Verbindungen
                   </Typography>
-                  <TableContainer component={Paper}>
+                  {/* This table is now managed by the global StandortContext */}
+                  {/* <TableContainer component={Paper}>
                     <Table>
                       <TableHead>
                         <TableRow>
@@ -867,7 +866,17 @@ const SwitchStackVerwaltung: React.FC = () => {
                         ))}
                       </TableBody>
                     </Table>
-                  </TableContainer>
+                  </TableContainer> */}
+                  <List>
+                    {selectedStack.stackVerbindungen.map((verbindung: any, index: number) => (
+                      <ListItem key={index}>
+                        <ListItemText
+                          primary={`${verbindung.quell_geraet_name} (Port ${verbindung.quell_port}) -> ${verbindung.ziel_geraet_name} (Port ${verbindung.ziel_port})`}
+                          secondary={`Typ: ${verbindung.verbindungstyp}, Kategorie: ${verbindung.kategorie || '-'}, Farbe: ${verbindung.farbe || '-'}, Bemerkungen: ${verbindung.bemerkungen || '-'}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
                 </>
               )}
             </Box>
@@ -921,7 +930,7 @@ const SwitchStackVerwaltung: React.FC = () => {
 
             <Button 
               variant="outlined" 
-              startIcon={<LinkIcon />}
+              startIcon={<CableIcon />}
               onClick={() => {
                 const newVerbindung = {
                   quellGeraetId: bearbeitetStack.mitglieder[0]?.geraet_id || '',
@@ -1081,7 +1090,7 @@ const SwitchStackVerwaltung: React.FC = () => {
                           const newVerbindungen = bearbeitetStack.stackVerbindungen.filter((_, i: number) => i !== index);
                           setBearbeitetStack({ ...bearbeitetStack, stackVerbindungen: newVerbindungen });
                         }}
-                        startIcon={<RemoveIcon />}
+                        startIcon={<DeleteIcon />}
                       >
                         Verbindung entfernen
                       </Button>
