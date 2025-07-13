@@ -51,8 +51,31 @@ import {
   ViewModule as CardViewIcon,
   List as ListViewIcon,
   FilterList as FilterIcon,
+  // OT-Geräte Icons
+  PrecisionManufacturing as VerdichterIcon,
+  Memory as SPSIcon,
+  DeveloperBoard as IndustrialSwitchIcon,
+  LocalGasStation as H2VersorgerIcon,
+  CompareArrows as ITOTRouterIcon,
+  Science as GasanalysatorIcon,
+  Speed as DrucksensorIcon,
+  Thermostat as TemperatursensorIcon,
+  WaterDrop as DurchflussmesserIcon,
+  ToggleOn as VentilstationIcon,
+  Warning as NotabschaltungIcon,
+  Tune as FrequenzumrichterIcon,
+  ElectricalServices as TransformatorIcon,
+  BatteryChargingFull as USVIcon,
+  Security as SecurityIcon,
+  Wifi as WifiIcon,
+  Storage as StorageIcon,
+  Videocam as VideocamIcon,
+  Print as PrintIcon,
+  Phone as PhoneIcon,
+  Sensors as SensorsIcon,
+  Hub as HubIcon,
 } from '@mui/icons-material';
-import { Geraet, GeraeteTyp, PortTyp, IPKonfiguration, OeffentlicheIPKonfiguration, OeffentlicheIP } from '../types';
+import { Geraet, GeraeteTyp, PortTyp, IPKonfiguration, OeffentlicheIPKonfiguration, OeffentlicheIP, Netzbereich, NetzbereichTyp } from '../types';
 import { ThemeContext, StandortContext } from '../App';
 
 const GeraeteVerwaltung: React.FC = () => {
@@ -63,6 +86,7 @@ const GeraeteVerwaltung: React.FC = () => {
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [geraetetypen, setGeraetetypen] = useState<string[]>([]);
   const [geraeteVerbindungen, setGeraeteVerbindungen] = useState<any[]>([]);
+  const [netzbereichListe, setNetzbereichListe] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [verbindungenLoading, setVerbindungenLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +94,29 @@ const GeraeteVerwaltung: React.FC = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bearbeitenDialogOpen, setBearbeitenDialogOpen] = useState(false);
   const [selectedGeraet, setSelectedGeraet] = useState<Geraet | null>(null);
+  const [netzbereichDialogOpen, setNetzbereichDialogOpen] = useState(false);
+  const [geraetetypDialogOpen, setGeraetetypDialogOpen] = useState(false);
+  const [neuerNetzbereich, setNeuerNetzbereich] = useState({
+    name: '',
+    beschreibung: '',
+    ip_bereich: '',
+    netztyp: 'IT-Netz',
+    vlan_id: undefined as number | undefined,
+    gateway: '',
+    dns_server: '',
+    ntp_server: '',
+    dhcp_aktiv: false,
+    dhcp_bereich: '',
+    bemerkungen: ''
+  });
+  const [neuerGeraetetyp, setNeuerGeraetetyp] = useState({
+    name: '',
+    beschreibung: '',
+    icon: '',
+    farbe: '#2196f3',
+    hostname_prefix: '',
+    kategorie: 'IT'
+  });
   
   // Filter- und Ansichtsoptionen
   const [geraetetypFilter, setGeraetetypFilter] = useState<string>('alle');
@@ -85,6 +132,8 @@ const GeraeteVerwaltung: React.FC = () => {
     // Neue IP-Konfiguration
     ipKonfigurationen: [] as IPKonfiguration[],
     oeffentlicheIPKonfigurationen: [] as OeffentlicheIPKonfiguration[],
+    // Gerätekategorisierung
+    geraetekategorie: 'IT' as 'IT' | 'OT' | 'Hybrid',
     // Legacy-Kompatibilität
     ipKonfiguration: {
       typ: 'dhcp' as 'dhcp' | 'statisch',
@@ -117,6 +166,92 @@ const GeraeteVerwaltung: React.FC = () => {
       }
     } catch (err) {
       console.error('Fehler beim Laden der Gerätetypen:', err);
+    }
+  };
+
+  const ladeNetzbereichListe = async () => {
+    if (!selectedStandort) return;
+    
+    try {
+      const response = await fetch(`/api/netzbereich-verwaltung?standort_id=${selectedStandort}`);
+      const data = await response.json();
+      if (data.success) {
+        setNetzbereichListe(data.data);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Netzbereich-Liste:', err);
+    }
+  };
+
+  const erstelleNetzbereich = async () => {
+    if (!selectedStandort) return;
+    
+    try {
+      const response = await fetch('/api/netzbereich-verwaltung', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...neuerNetzbereich,
+          standort_id: selectedStandort
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setNetzbereichDialogOpen(false);
+        setNeuerNetzbereich({
+          name: '',
+          beschreibung: '',
+          ip_bereich: '',
+          netztyp: 'IT-Netz',
+          vlan_id: undefined,
+          gateway: '',
+          dns_server: '',
+          ntp_server: '',
+          dhcp_aktiv: false,
+          dhcp_bereich: '',
+          bemerkungen: ''
+        });
+        ladeNetzbereichListe();
+      } else {
+        setError(data.error || 'Fehler beim Erstellen des Netzbereichs');
+      }
+    } catch (err) {
+      console.error('Fehler beim Erstellen des Netzbereichs:', err);
+      setError('Verbindungsfehler beim Erstellen des Netzbereichs');
+    }
+  };
+
+  const erstelleGeraetetyp = async () => {
+    try {
+      const response = await fetch('/api/geraetetypen', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(neuerGeraetetyp),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setGeraetetypDialogOpen(false);
+        setNeuerGeraetetyp({
+          name: '',
+          beschreibung: '',
+          icon: '',
+          farbe: '#2196f3',
+          hostname_prefix: '',
+          kategorie: 'IT'
+        });
+        ladeGeraetetypen();
+      } else {
+        setError(data.error || 'Fehler beim Erstellen des Gerätetyps');
+      }
+    } catch (err) {
+      console.error('Fehler beim Erstellen des Gerätetyps:', err);
+      setError('Verbindungsfehler beim Erstellen des Gerätetyps');
     }
   };
 
@@ -299,6 +434,8 @@ const GeraeteVerwaltung: React.FC = () => {
       // Neue IP-Konfiguration
       ipKonfigurationen: [],
       oeffentlicheIPKonfigurationen: [],
+      // Gerätekategorisierung
+      geraetekategorie: 'IT' as 'IT' | 'OT' | 'Hybrid',
       // Legacy-Kompatibilität
       ipKonfiguration: {
         typ: 'dhcp',
@@ -362,8 +499,8 @@ const GeraeteVerwaltung: React.FC = () => {
   const renderPortKonfiguration = (ports: any[], isBearbeiten = false) => {
     if (!ports || ports.length === 0) return null;
 
-    const verfuegbarePortTypen: PortTyp[] = ['RJ45', 'SFP', 'SFP+', 'QSFP', 'SFP28', 'QSFP28', 'PoE'];
-    const verfuegbareGeschwindigkeiten = ['10M', '100M', '1G', '2.5G', '5G', '10G', '25G', '40G', '100G'];
+    const verfuegbarePortTypen: PortTyp[] = ['RJ45', 'SFP', 'SFP+', 'QSFP', 'SFP28', 'QSFP28', 'PoE', 'M12', 'M8', 'Profinet', 'Konsole', 'Management'];
+    const verfuegbareGeschwindigkeiten = ['10M', '100M', '1G', '2.5G', '5G', '10G', '25G', '40G', '100G', '31.25kbit/s', '125kbit/s', '500kbit/s', '12Mbit/s'];
 
     return (
       <Box sx={{ mt: 2 }}>
@@ -554,28 +691,45 @@ const GeraeteVerwaltung: React.FC = () => {
 
   const getGeraetIcon = (geraetetyp: GeraeteTyp) => {
     const iconMap: Record<string, React.ReactNode> = {
+      // IT-Geräte
       'Router': <RouterIcon />,
       'Switch': <ModemIcon />,
-      'SD-WAN Gateway': <RouterIcon />,
-      'Firewall': <RouterIcon />,
-      'Access Point': <RouterIcon />,
-      'Kamera': <ComputerIcon />,
-      'VOIP-Phone': <ComputerIcon />,
-      'Drucker': <ComputerIcon />,
-      'AI-Port': <ComputerIcon />,
-      'NVR': <ComputerIcon />,
-      'Zugangskontrolle': <ComputerIcon />,
-      'Serial Server': <ComputerIcon />,
-      'HMI': <ComputerIcon />,
+      'SD-WAN Gateway': <HubIcon />,
+      'Firewall': <SecurityIcon />,
+      'Access Point': <WifiIcon />,
+      'Kamera': <VideocamIcon />,
+      'VOIP-Phone': <PhoneIcon />,
+      'Drucker': <PrintIcon />,
+      'AI-Port': <SPSIcon />,
+      'NVR': <StorageIcon />,
+      'Zugangskontrolle': <SecurityIcon />,
+      'Serial Server': <ModemIcon />,
+      'HMI': <SPSIcon />,
       'Server': <ComputerIcon />,
-      'Sensor': <ComputerIcon />,
+      'Sensor': <SensorsIcon />,
       'Sonstiges': <ComputerIcon />,
+      // OT-Geräte
+      'Verdichter': <VerdichterIcon />,
+      'SPS': <SPSIcon />,
+      'Industrial Switch': <IndustrialSwitchIcon />,
+      'H2-Versorger': <H2VersorgerIcon />,
+      'IT/OT-Router': <ITOTRouterIcon />,
+      'Gasanalysator': <GasanalysatorIcon />,
+      'Drucksensor': <DrucksensorIcon />,
+      'Temperatursensor': <TemperatursensorIcon />,
+      'Durchflussmesser': <DurchflussmesserIcon />,
+      'Ventilstation': <VentilstationIcon />,
+      'Notabschaltung': <NotabschaltungIcon />,
+      'Frequenzumrichter': <FrequenzumrichterIcon />,
+      'Transformator': <TransformatorIcon />,
+      'USV': <USVIcon />,
     };
     return iconMap[geraetetyp] || <ComputerIcon />;
   };
 
   const getGeraetColor = (geraetetyp: GeraeteTyp): string => {
     const colorMap: Record<string, string> = {
+      // IT-Geräte
       'Router': '#f44336',
       'Switch': '#2196f3',
       'SD-WAN Gateway': '#ff9800',
@@ -592,6 +746,21 @@ const GeraeteVerwaltung: React.FC = () => {
       'Server': '#3f51b5',
       'Sensor': '#009688',
       'Sonstiges': '#9e9e9e',
+      // OT-Geräte
+      'Verdichter': '#ff6b35',
+      'SPS': '#1976d2',
+      'Industrial Switch': '#388e3c',
+      'H2-Versorger': '#2e7d32',
+      'IT/OT-Router': '#f57c00',
+      'Gasanalysator': '#7b1fa2',
+      'Drucksensor': '#5d4037',
+      'Temperatursensor': '#d32f2f',
+      'Durchflussmesser': '#0288d1',
+      'Ventilstation': '#689f38',
+      'Notabschaltung': '#c62828',
+      'Frequenzumrichter': '#455a64',
+      'Transformator': '#424242',
+      'USV': '#558b2f',
     };
     return colorMap[geraetetyp] || '#9e9e9e';
   };
@@ -604,6 +773,16 @@ const GeraeteVerwaltung: React.FC = () => {
       'Fibre Singlemode': '#ff9800',
       'Fibre Multimode': '#f44336',
       'Coax': '#9c27b0',
+      // Profinet-Kabel (grüne Töne für Industrial Ethernet)
+      'Profinet Standard': '#2e7d32',
+      'Profinet Fast Connect': '#388e3c',
+      'Profinet Robust': '#43a047',
+      'Profinet Marine': '#4caf50',
+      // M12/M8 Industriesteckverbindungen (blaue Töne)
+      'M12 4-polig': '#1976d2',
+      'M12 8-polig': '#1565c0',
+      'M8 3-polig': '#0d47a1',
+      'M8 4-polig': '#0277bd',
       'Sonstiges': '#607d8b',
     };
     return farbMap[kabeltyp] || '#607d8b';
@@ -625,6 +804,7 @@ const GeraeteVerwaltung: React.FC = () => {
     portNummer,
     typ: 'dhcp',
     netzwerkbereich: '',
+    netzbereichTyp: 'IT',
     aktiv: true,
     prioritaet: 1,
   });
@@ -644,6 +824,7 @@ const GeraeteVerwaltung: React.FC = () => {
         typ: geraet.ipKonfiguration.typ,
         ipAdresse: geraet.ipKonfiguration.ipAdresse,
         netzwerkbereich: geraet.ipKonfiguration.netzwerkbereich || '',
+        netzbereichTyp: 'IT',
         aktiv: true,
         prioritaet: 1,
       }];
@@ -862,18 +1043,40 @@ const GeraeteVerwaltung: React.FC = () => {
 
                     {/* Netzwerkbereich (immer anzeigen) */}
                     <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Netzwerkbereich"
-                        fullWidth
-                        size="small"
-                        placeholder="192.168.1.0/24"
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Netzwerkbereich</InputLabel>
+                          <Select
                         value={ipConfig.netzwerkbereich}
                         onChange={(e) => updateIPKonfigurationen(
                           aktualisiereIPKonfiguration(ipKonfigurationen, ipConfig.id, { netzwerkbereich: e.target.value })
                         )}
-                        helperText="Auch bei DHCP für Filter angeben"
-                        required
-                      />
+                            label="Netzwerkbereich"
+                          >
+                            {netzbereichListe.map((netzbereich) => (
+                              <MenuItem key={netzbereich.id} value={netzbereich.ip_bereich}>
+                                {netzbereich.name} ({netzbereich.ip_bereich})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <Tooltip title="Neuen Netzbereich hinzufügen">
+                          <IconButton 
+                            size="small" 
+                            color="primary" 
+                            onClick={() => setNetzbereichDialogOpen(true)}
+                            sx={{ 
+                              minWidth: 'auto',
+                              width: 32,
+                              height: 32,
+                              border: '1px solid',
+                              borderColor: 'primary.main'
+                            }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </Grid>
 
                     {/* IP-Adresse (nur bei statisch erforderlich) */}
@@ -1588,6 +1791,7 @@ const GeraeteVerwaltung: React.FC = () => {
   useEffect(() => {
     if (selectedStandort) {
       ladeGeraete(selectedStandort);
+      ladeNetzbereichListe();
     }
   }, [selectedStandort]);
 
@@ -1931,6 +2135,7 @@ const GeraeteVerwaltung: React.FC = () => {
               </Grid>
               
               <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Autocomplete
                   freeSolo
                   options={geraetetypen}
@@ -1955,7 +2160,25 @@ const GeraeteVerwaltung: React.FC = () => {
                       helperText="Auswählen oder neuen Typ eingeben"
                     />
                   )}
-                />
+                    sx={{ width: '100%' }}
+                  />
+                  <Tooltip title="Neuen Gerätetyp hinzufügen">
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      onClick={() => setGeraetetypDialogOpen(true)}
+                      sx={{ 
+                        minWidth: 'auto',
+                        width: 32,
+                        height: 32,
+                        border: '1px solid',
+                        borderColor: 'primary.main'
+                      }}
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Grid>
               
               <Grid item xs={12} sm={6}>
@@ -2528,6 +2751,7 @@ const GeraeteVerwaltung: React.FC = () => {
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Autocomplete
                     freeSolo
                     options={geraetetypen}
@@ -2552,7 +2776,25 @@ const GeraeteVerwaltung: React.FC = () => {
                         helperText="Auswählen oder neuen Typ eingeben"
                       />
                     )}
-                  />
+                      sx={{ width: '100%' }}
+                    />
+                    <Tooltip title="Neuen Gerätetyp hinzufügen">
+                      <IconButton 
+                        size="small" 
+                        color="primary" 
+                        onClick={() => setGeraetetypDialogOpen(true)}
+                        sx={{ 
+                          minWidth: 'auto',
+                          width: 32,
+                          height: 32,
+                          border: '1px solid',
+                          borderColor: 'primary.main'
+                        }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Grid>
                 
                 <Grid item xs={12} sm={6}>
@@ -2808,6 +3050,181 @@ const GeraeteVerwaltung: React.FC = () => {
             disabled={!selectedGeraet?.name || !selectedGeraet?.geraetetyp || !selectedGeraet?.modell}
           >
             Speichern
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog für Netzbereich hinzufügen */}
+      <Dialog open={netzbereichDialogOpen} onClose={() => setNetzbereichDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Neuen Netzbereich hinzufügen</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  autoFocus
+                  label="Name"
+                  fullWidth
+                  value={neuerNetzbereich.name}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Netztyp</InputLabel>
+                  <Select
+                    value={neuerNetzbereich.netztyp}
+                    onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, netztyp: e.target.value })}
+                    label="Netztyp"
+                  >
+                    <MenuItem value="IT-Netz">IT-Netz</MenuItem>
+                    <MenuItem value="OT-Netz">OT-Netz</MenuItem>
+                    <MenuItem value="Sonstiges">Sonstiges</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Beschreibung"
+                  fullWidth
+                  value={neuerNetzbereich.beschreibung}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, beschreibung: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="IP-Bereich"
+                  fullWidth
+                  value={neuerNetzbereich.ip_bereich}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, ip_bereich: e.target.value })}
+                  placeholder="10.202.0.0/16"
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="VLAN ID"
+                  type="number"
+                  fullWidth
+                  value={neuerNetzbereich.vlan_id || ''}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, vlan_id: e.target.value ? parseInt(e.target.value) : undefined })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Gateway"
+                  fullWidth
+                  value={neuerNetzbereich.gateway}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, gateway: e.target.value })}
+                  placeholder="10.202.0.1"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="DNS Server"
+                  fullWidth
+                  value={neuerNetzbereich.dns_server}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, dns_server: e.target.value })}
+                  placeholder="8.8.8.8"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Bemerkungen"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={neuerNetzbereich.bemerkungen}
+                  onChange={(e) => setNeuerNetzbereich({ ...neuerNetzbereich, bemerkungen: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNetzbereichDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={erstelleNetzbereich}
+            variant="contained"
+            disabled={!neuerNetzbereich.name || !neuerNetzbereich.ip_bereich}
+          >
+            Hinzufügen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog für Gerätetyp hinzufügen */}
+      <Dialog open={geraetetypDialogOpen} onClose={() => setGeraetetypDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Neuen Gerätetyp hinzufügen</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  autoFocus
+                  label="Name"
+                  fullWidth
+                  value={neuerGeraetetyp.name}
+                  onChange={(e) => setNeuerGeraetetyp({ ...neuerGeraetetyp, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Beschreibung"
+                  fullWidth
+                  value={neuerGeraetetyp.beschreibung}
+                  onChange={(e) => setNeuerGeraetetyp({ ...neuerGeraetetyp, beschreibung: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Hostname-Präfix"
+                  fullWidth
+                  value={neuerGeraetetyp.hostname_prefix}
+                  onChange={(e) => setNeuerGeraetetyp({ ...neuerGeraetetyp, hostname_prefix: e.target.value })}
+                  placeholder="SW, RT, FW"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Kategorie</InputLabel>
+                  <Select
+                    value={neuerGeraetetyp.kategorie}
+                    onChange={(e) => setNeuerGeraetetyp({ ...neuerGeraetetyp, kategorie: e.target.value })}
+                    label="Kategorie"
+                  >
+                    <MenuItem value="IT">IT-Gerät</MenuItem>
+                    <MenuItem value="OT">OT-Gerät</MenuItem>
+                    <MenuItem value="Hybrid">Hybrid</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Farbe"
+                  type="color"
+                  fullWidth
+                  value={neuerGeraetetyp.farbe}
+                  onChange={(e) => setNeuerGeraetetyp({ ...neuerGeraetetyp, farbe: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGeraetetypDialogOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={erstelleGeraetetyp}
+            variant="contained"
+            disabled={!neuerGeraetetyp.name}
+          >
+            Hinzufügen
           </Button>
         </DialogActions>
       </Dialog>

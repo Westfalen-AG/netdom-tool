@@ -286,6 +286,9 @@ app.get('/api/standorte', async (req, res) => {
       // hostname_prefix zu hostnamePrefix konvertieren
       standort.hostnamePrefix = standort.hostname_prefix;
       
+      // standard_netzbereich zu standardNetzbereich konvertieren
+      standort.standardNetzbereich = standort.standard_netzbereich;
+      
       // Alte Properties entfernen
       delete standort.ansprechpartner_name;
       delete standort.ansprechpartner_telefon;
@@ -293,6 +296,7 @@ app.get('/api/standorte', async (req, res) => {
       delete standort.ansprechpartner_it_id;
       delete standort.ansprechpartner_vor_ort_id;
       delete standort.hostname_prefix;
+      delete standort.standard_netzbereich;
     }
 
     res.json(createResponse(true, standorte));
@@ -358,6 +362,9 @@ app.get('/api/standorte/:id', async (req, res) => {
     // hostname_prefix zu hostnamePrefix konvertieren
     standort.hostnamePrefix = standort.hostname_prefix;
     
+    // standard_netzbereich zu standardNetzbereich konvertieren
+    standort.standardNetzbereich = standort.standard_netzbereich;
+    
     // Alte Properties entfernen
     delete standort.ansprechpartner_name;
     delete standort.ansprechpartner_telefon;
@@ -365,6 +372,7 @@ app.get('/api/standorte/:id', async (req, res) => {
     delete standort.ansprechpartner_it_id;
     delete standort.ansprechpartner_vor_ort_id;
     delete standort.hostname_prefix;
+    delete standort.standard_netzbereich;
 
     res.json(createResponse(true, standort));
   } catch (error) {
@@ -382,7 +390,8 @@ app.post('/api/standorte', async (req, res) => {
       ansprechpartner,
       ansprechpartnerITId,
       ansprechpartnerVorOrtId,
-      hostnamePrefix
+      hostnamePrefix,
+      standardNetzbereich
     } = req.body;
 
     const standortId = uuidv4();
@@ -394,8 +403,8 @@ app.post('/api/standorte', async (req, res) => {
       INSERT INTO standorte (
         id, name, adresse, ansprechpartner_name, 
         ansprechpartner_telefon, ansprechpartner_email,
-        ansprechpartner_it_id, ansprechpartner_vor_ort_id, hostname_prefix
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ansprechpartner_it_id, ansprechpartner_vor_ort_id, hostname_prefix, standard_netzbereich
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       standortId,
       name,
@@ -405,7 +414,8 @@ app.post('/api/standorte', async (req, res) => {
       ansprechpartner?.email || '',
       ansprechpartnerITId || null,
       ansprechpartnerVorOrtId || null,
-      hostnamePrefix || null
+      hostnamePrefix || null,
+      standardNetzbereich || null
     ]);
 
     // Uplinks werden automatisch aus Router/SD-WAN Geräten erkannt - keine separaten Einträge mehr
@@ -429,7 +439,8 @@ app.put('/api/standorte/:id', async (req, res) => {
       ansprechpartner,
       ansprechpartnerITId,
       ansprechpartnerVorOrtId,
-      hostnamePrefix
+      hostnamePrefix,
+      standardNetzbereich
     } = req.body;
 
     const standortId = req.params.id;
@@ -441,7 +452,7 @@ app.put('/api/standorte/:id', async (req, res) => {
       UPDATE standorte SET 
         name = ?, adresse = ?, ansprechpartner_name = ?, 
         ansprechpartner_telefon = ?, ansprechpartner_email = ?,
-        ansprechpartner_it_id = ?, ansprechpartner_vor_ort_id = ?, hostname_prefix = ?
+        ansprechpartner_it_id = ?, ansprechpartner_vor_ort_id = ?, hostname_prefix = ?, standard_netzbereich = ?
       WHERE id = ?
     `, [
       name,
@@ -452,6 +463,7 @@ app.put('/api/standorte/:id', async (req, res) => {
       ansprechpartnerITId || null,
       ansprechpartnerVorOrtId || null,
       hostnamePrefix || null,
+      standardNetzbereich || null,
       standortId
     ]);
 
@@ -502,6 +514,11 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
         seriennummer: geraetRow.seriennummer,
         standortDetails: geraetRow.standort_details,
         bemerkungen: geraetRow.bemerkungen,
+        
+        // IT/OT-spezifische Eigenschaften
+        purdueLevel: geraetRow.purdue_level || 'Nicht definiert',
+        securityZone: geraetRow.security_zone || 'Nicht definiert',
+        geraetekategorie: geraetRow.geraetekategorie || 'IT',
         
         // Neue erweiterte IP-Konfigurationen
         ipKonfigurationen,
@@ -565,6 +582,9 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       seriennummer,
       standortDetails,
       bemerkungen,
+      purdueLevel,
+      securityZone,
+      geraetekategorie,
       ipKonfiguration,
       ipKonfigurationen,
       oeffentlicheIPKonfigurationen,
@@ -588,10 +608,11 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
     await db.run(`
       INSERT INTO geraete (
         id, standort_id, name, hostname, geraetetyp, modell, seriennummer, standort_details, bemerkungen,
+        purdue_level, security_zone, geraetekategorie,
         ip_typ, ip_adresse, netzwerkbereich, mac_adresse, anzahl_netzwerkports,
         position_x, position_y, rack_name, rack_einheit,
         hat_oeffentliche_ip, oeffentliche_ip_typ, dyndns_aktiv, dyndns_adresse, statische_oeffentliche_ip
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       geraetId,
       req.params.standortId,
@@ -602,6 +623,9 @@ app.post('/api/standorte/:standortId/geraete', async (req, res) => {
       seriennummer || null,
       standortDetails || null,
       bemerkungen || null,
+      purdueLevel || 'Nicht definiert',
+      securityZone || 'Nicht definiert',
+      geraetekategorie || 'IT',
       ipKonfiguration?.typ || 'dhcp',
       ipKonfiguration?.ipAdresse || null,
       ipKonfiguration?.netzwerkbereich || null,
@@ -676,6 +700,9 @@ app.put('/api/geraete/:id', async (req, res) => {
       seriennummer,
       standortDetails,
       bemerkungen,
+      purdueLevel,
+      securityZone,
+      geraetekategorie,
       ipKonfiguration,
       ipKonfigurationen,
       oeffentlicheIPKonfigurationen,
@@ -706,6 +733,7 @@ app.put('/api/geraete/:id', async (req, res) => {
     await db.run(`
       UPDATE geraete SET 
         name = ?, hostname = ?, geraetetyp = ?, modell = ?, seriennummer = ?, standort_details = ?, bemerkungen = ?,
+        purdue_level = ?, security_zone = ?, geraetekategorie = ?,
         ip_typ = ?, ip_adresse = ?, netzwerkbereich = ?, mac_adresse = ?, anzahl_netzwerkports = ?,
         position_x = ?, position_y = ?, rack_name = ?, rack_einheit = ?,
         hat_oeffentliche_ip = ?, oeffentliche_ip_typ = ?, dyndns_aktiv = ?, dyndns_adresse = ?, statische_oeffentliche_ip = ?
@@ -718,6 +746,9 @@ app.put('/api/geraete/:id', async (req, res) => {
       seriennummer || null,
       standortDetails || null,
       bemerkungen || null,
+      purdueLevel || altesGeraet.purdue_level || 'Nicht definiert',
+      securityZone || altesGeraet.security_zone || 'Nicht definiert',
+      geraetekategorie || altesGeraet.geraetekategorie || 'IT',
       ipKonfiguration?.typ || 'dhcp',
       ipKonfiguration?.ipAdresse || null,
       ipKonfiguration?.netzwerkbereich || null,
@@ -1694,7 +1725,7 @@ app.get('/api/geraetetypen/:id', async (req, res) => {
 // Neuen Gerätetyp erstellen
 app.post('/api/geraetetypen', async (req, res) => {
   try {
-    const { name, beschreibung, icon, farbe, hostnamePrefix } = req.body;
+    const { name, beschreibung, icon, farbe, hostnamePrefix, kategorie } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
@@ -1709,15 +1740,16 @@ app.post('/api/geraetetypen', async (req, res) => {
     const geraetetypId = uuidv4();
 
     await db.run(`
-      INSERT INTO geraetetypen (id, name, beschreibung, icon, farbe, hostname_prefix, aktiv)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
+      INSERT INTO geraetetypen (id, name, beschreibung, icon, farbe, hostname_prefix, kategorie, aktiv)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
     `, [
       geraetetypId, 
       name.trim(), 
       beschreibung || null, 
       icon || 'device_unknown', 
       farbe || '#757575',
-      hostnamePrefix || 'XX'
+      hostnamePrefix || 'XX',
+      kategorie || 'IT'
     ]);
 
     res.status(201).json(createResponse(true, { id: geraetetypId }, 'Gerätetyp erfolgreich erstellt'));
@@ -1730,7 +1762,7 @@ app.post('/api/geraetetypen', async (req, res) => {
 // Gerätetyp aktualisieren
 app.put('/api/geraetetypen/:id', async (req, res) => {
   try {
-    const { name, beschreibung, icon, farbe, hostnamePrefix, aktiv } = req.body;
+    const { name, beschreibung, icon, farbe, hostnamePrefix, kategorie, aktiv } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
@@ -1754,6 +1786,7 @@ app.put('/api/geraetetypen/:id', async (req, res) => {
         icon = ?,
         farbe = ?,
         hostname_prefix = ?,
+        kategorie = ?,
         aktiv = ?
       WHERE id = ?
     `, [
@@ -1761,7 +1794,8 @@ app.put('/api/geraetetypen/:id', async (req, res) => {
       beschreibung || null, 
       icon || 'device_unknown', 
       farbe || '#757575',
-      hostnamePrefix || 'XX', 
+      hostnamePrefix || 'XX',
+      kategorie || 'IT', 
       aktiv ? 1 : 0,
       req.params.id
     ]);
@@ -2056,6 +2090,1677 @@ app.delete('/api/ansprechpartner/:id', async (req, res) => {
     res.json(createResponse(true, null, 'Ansprechpartner erfolgreich gelöscht'));
   } catch (error) {
     console.error('Fehler beim Löschen des Ansprechpartners:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== NETZBEREICHSVERWALTUNG API ===================
+
+// Alle Netzbereich für einen Standort abrufen
+app.get('/api/netzbereich-verwaltung', async (req, res) => {
+  try {
+    const { standort_id } = req.query;
+
+    if (!standort_id) {
+      return res.status(400).json(createResponse(false, null, 'Standort-ID ist erforderlich'));
+    }
+
+    const netzbereich = await db.all(`
+      SELECT * FROM netzbereich_verwaltung 
+      WHERE standort_id = ? 
+      ORDER BY netztyp, name
+    `, [standort_id]);
+
+    res.json(createResponse(true, netzbereich));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Netzbereich-Liste:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Einzelnen Netzbereich abrufen
+app.get('/api/netzbereich-verwaltung/:id', async (req, res) => {
+  try {
+    const netzbereich = await db.get(
+      'SELECT * FROM netzbereich_verwaltung WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (!netzbereich) {
+      return res.status(404).json(createResponse(false, null, 'Netzbereich nicht gefunden'));
+    }
+
+    res.json(createResponse(true, netzbereich));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Netzbereichs:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Neuen Netzbereich erstellen
+app.post('/api/netzbereich-verwaltung', async (req, res) => {
+  try {
+    const { 
+      name, 
+      beschreibung, 
+      ip_bereich, 
+      netztyp, 
+      standort_id, 
+      vlan_id, 
+      gateway, 
+      dns_server, 
+      ntp_server,
+      dhcp_aktiv,
+      dhcp_bereich,
+      aktiv, 
+      bemerkungen 
+    } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
+    }
+
+    if (!ip_bereich || ip_bereich.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'IP-Bereich ist erforderlich'));
+    }
+
+    if (!standort_id) {
+      return res.status(400).json(createResponse(false, null, 'Standort-ID ist erforderlich'));
+    }
+
+    // Prüfen ob Name bereits existiert für diesen Standort
+    const existierend = await db.get(
+      'SELECT id FROM netzbereich_verwaltung WHERE name = ? AND standort_id = ?',
+      [name.trim(), standort_id]
+    );
+
+    if (existierend) {
+      return res.status(400).json(createResponse(false, null, 'Ein Netzbereich mit diesem Namen existiert bereits für diesen Standort'));
+    }
+
+    const netzbereichId = uuidv4();
+
+    await db.run(`
+      INSERT INTO netzbereich_verwaltung (
+        id, name, beschreibung, ip_bereich, netztyp, standort_id, 
+        vlan_id, gateway, dns_server, ntp_server, dhcp_aktiv, dhcp_bereich, aktiv, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      netzbereichId, 
+      name.trim(), 
+      beschreibung || null, 
+      ip_bereich.trim(), 
+      netztyp || 'IT-Netz', 
+      standort_id, 
+      vlan_id || null, 
+      gateway || null, 
+      dns_server || null, 
+      ntp_server || null,
+      dhcp_aktiv !== undefined ? (dhcp_aktiv ? 1 : 0) : 0,
+      dhcp_bereich || null,
+      aktiv !== undefined ? (aktiv ? 1 : 0) : 1, 
+      bemerkungen || null
+    ]);
+
+    res.status(201).json(createResponse(true, { id: netzbereichId }, 'Netzbereich erfolgreich erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Netzbereichs:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Netzbereich aktualisieren
+app.put('/api/netzbereich-verwaltung/:id', async (req, res) => {
+  try {
+    const { 
+      name, 
+      beschreibung, 
+      ip_bereich, 
+      netztyp, 
+      standort_id, 
+      vlan_id, 
+      gateway, 
+      dns_server, 
+      ntp_server,
+      dhcp_aktiv,
+      dhcp_bereich,
+      aktiv, 
+      bemerkungen 
+    } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'Name ist erforderlich'));
+    }
+
+    if (!ip_bereich || ip_bereich.trim() === '') {
+      return res.status(400).json(createResponse(false, null, 'IP-Bereich ist erforderlich'));
+    }
+
+    if (!standort_id) {
+      return res.status(400).json(createResponse(false, null, 'Standort-ID ist erforderlich'));
+    }
+
+    const existierend = await db.get('SELECT id FROM netzbereich_verwaltung WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Netzbereich nicht gefunden'));
+    }
+
+    // Prüfen ob Name bereits existiert für diesen Standort (außer dem aktuellen)
+    const namensKonflikt = await db.get(
+      'SELECT id FROM netzbereich_verwaltung WHERE name = ? AND standort_id = ? AND id != ?',
+      [name.trim(), standort_id, req.params.id]
+    );
+
+    if (namensKonflikt) {
+      return res.status(400).json(createResponse(false, null, 'Ein Netzbereich mit diesem Namen existiert bereits für diesen Standort'));
+    }
+
+    await db.run(`
+      UPDATE netzbereich_verwaltung SET
+        name = ?,
+        beschreibung = ?,
+        ip_bereich = ?,
+        netztyp = ?,
+        standort_id = ?,
+        vlan_id = ?,
+        gateway = ?,
+        dns_server = ?,
+        ntp_server = ?,
+        dhcp_aktiv = ?,
+        dhcp_bereich = ?,
+        aktiv = ?,
+        bemerkungen = ?
+      WHERE id = ?
+    `, [
+      name.trim(), 
+      beschreibung || null, 
+      ip_bereich.trim(), 
+      netztyp || 'IT-Netz', 
+      standort_id, 
+      vlan_id || null, 
+      gateway || null, 
+      dns_server || null, 
+      ntp_server || null,
+      dhcp_aktiv !== undefined ? (dhcp_aktiv ? 1 : 0) : 0,
+      dhcp_bereich || null,
+      aktiv !== undefined ? (aktiv ? 1 : 0) : 1, 
+      bemerkungen || null, 
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Netzbereich erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Netzbereichs:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Netzbereich löschen
+app.delete('/api/netzbereich-verwaltung/:id', async (req, res) => {
+  try {
+    const result = await db.run('DELETE FROM netzbereich_verwaltung WHERE id = ?', [req.params.id]);
+    
+    if (result.changes === 0) {
+      return res.status(404).json(createResponse(false, null, 'Netzbereich nicht gefunden'));
+    }
+
+    res.json(createResponse(true, null, 'Netzbereich erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Netzbereichs:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== IT/OT SECURITY APIs ===================
+
+// Security Assessments für ein Gerät abrufen
+app.get('/api/geraete/:geraetId/security-assessment', async (req, res) => {
+  try {
+    const assessment = await db.get(`
+      SELECT * FROM security_assessments WHERE geraet_id = ?
+    `, [req.params.geraetId]);
+
+    if (!assessment) {
+      return res.json(createResponse(true, null, 'Keine Security Assessment gefunden'));
+    }
+
+    const responseData = {
+      id: assessment.id,
+      geraetId: assessment.geraet_id,
+      iec62443Level: assessment.iec62443_level,
+      risikoEinstufung: assessment.risiko_einstufung,
+      bedrohungsanalyse: assessment.bedrohungsanalyse,
+      schutzmaßnahmen: assessment.schutzmassnahmen ? JSON.parse(assessment.schutzmassnahmen) : [],
+      letzteBewertung: assessment.letzte_bewertung,
+      naechsteBewertung: assessment.naechste_bewertung,
+      verantwortlicher: assessment.verantwortlicher,
+      bemerkungen: assessment.bemerkungen
+    };
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Security Assessment erstellen oder aktualisieren
+app.post('/api/geraete/:geraetId/security-assessment', async (req, res) => {
+  try {
+    const {
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      schutzmaßnahmen,
+      letzteBewertung,
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen
+    } = req.body;
+
+    const assessmentId = uuidv4();
+
+    await db.run(`
+      INSERT OR REPLACE INTO security_assessments (
+        id, geraet_id, iec62443_level, risiko_einstufung, bedrohungsanalyse,
+        schutzmassnahmen, letzte_bewertung, naechste_bewertung, verantwortlicher, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      assessmentId,
+      req.params.geraetId,
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      JSON.stringify(schutzmaßnahmen || []),
+      letzteBewertung,
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen
+    ]);
+
+    res.json(createResponse(true, { id: assessmentId }, 'Security Assessment erfolgreich gespeichert'));
+  } catch (error) {
+    console.error('Fehler beim Speichern des Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Network Segmentation für einen Standort abrufen
+app.get('/api/standorte/:standortId/network-segmentation', async (req, res) => {
+  try {
+    const segments = await db.all(`
+      SELECT ns.*, 
+        (SELECT COUNT(*) FROM firewall_rules WHERE segmentation_id = ns.id) as rules_count
+      FROM network_segmentation ns 
+      WHERE ns.standort_id = ? AND ns.aktiv = 1
+      ORDER BY ns.security_zone
+    `, [req.params.standortId]);
+
+    const responseData = segments.map(segment => ({
+      id: segment.id,
+      name: segment.name,
+      beschreibung: segment.beschreibung,
+      securityZone: segment.security_zone,
+      vlanIds: segment.vlan_ids ? JSON.parse(segment.vlan_ids) : [],
+      allowedProtocols: segment.allowed_protocols ? JSON.parse(segment.allowed_protocols) : [],
+      accessControlList: segment.access_control_list ? JSON.parse(segment.access_control_list) : [],
+      monitoringLevel: segment.monitoring_level,
+      rulesCount: segment.rules_count,
+      aktiv: Boolean(segment.aktiv),
+      erstelltAm: segment.erstellt_am
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Network Segmentation:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== INDUSTRIAL PROTOCOL APIs ===================
+
+// Communication Matrix für einen Standort abrufen
+app.get('/api/standorte/:standortId/communication-matrix', async (req, res) => {
+  try {
+    const communications = await db.all(`
+      SELECT cm.*, 
+        g1.name as quell_name, g1.geraetetyp as quell_typ,
+        g2.name as ziel_name, g2.geraetetyp as ziel_typ
+      FROM communication_matrix cm
+      JOIN geraete g1 ON cm.quell_geraet_id = g1.id
+      JOIN geraete g2 ON cm.ziel_geraet_id = g2.id
+      WHERE cm.standort_id = ?
+      ORDER BY cm.protokoll, g1.name
+    `, [req.params.standortId]);
+
+    const responseData = communications.map(comm => ({
+      id: comm.id,
+      quellGeraetId: comm.quell_geraet_id,
+      quellName: comm.quell_name,
+      quellTyp: comm.quell_typ,
+      zielGeraetId: comm.ziel_geraet_id,
+      zielName: comm.ziel_name,
+      zielTyp: comm.ziel_typ,
+      protokoll: comm.protokoll,
+      richtung: comm.richtung,
+      datentyp: comm.datentyp,
+      zykluszeit: comm.zykluszeit,
+      prioritaet: comm.prioritaet,
+      realTimeRequirement: Boolean(comm.real_time_requirement),
+      maxLatenz: comm.max_latenz,
+      maxJitter: comm.max_jitter,
+      sicherheitsrelevant: Boolean(comm.sicherheitsrelevant),
+      verschluesselung: Boolean(comm.verschluesselung),
+      authentifizierung: Boolean(comm.authentifizierung),
+      bemerkungen: comm.bemerkungen
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Communication Matrix:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Communication Matrix Eintrag erstellen
+app.post('/api/standorte/:standortId/communication-matrix', async (req, res) => {
+  try {
+    const {
+      quellGeraetId,
+      zielGeraetId,
+      protokoll,
+      richtung,
+      datentyp,
+      zykluszeit,
+      prioritaet,
+      realTimeRequirement,
+      maxLatenz,
+      maxJitter,
+      sicherheitsrelevant,
+      verschluesselung,
+      authentifizierung,
+      bemerkungen
+    } = req.body;
+
+    const communicationId = uuidv4();
+
+    await db.run(`
+      INSERT INTO communication_matrix (
+        id, quell_geraet_id, ziel_geraet_id, protokoll, richtung, datentyp,
+        zykluszeit, prioritaet, real_time_requirement, max_latenz, max_jitter,
+        sicherheitsrelevant, verschluesselung, authentifizierung, bemerkungen, standort_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      communicationId,
+      quellGeraetId,
+      zielGeraetId,
+      protokoll,
+      richtung,
+      datentyp,
+      zykluszeit,
+      prioritaet,
+      realTimeRequirement ? 1 : 0,
+      maxLatenz,
+      maxJitter,
+      sicherheitsrelevant ? 1 : 0,
+      verschluesselung ? 1 : 0,
+      authentifizierung ? 1 : 0,
+      bemerkungen,
+      req.params.standortId
+    ]);
+
+    res.json(createResponse(true, { id: communicationId }, 'Communication Matrix Eintrag erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Communication Matrix Eintrags:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== ASSET LIFECYCLE APIs ===================
+
+// Asset Lifecycle für ein Gerät abrufen
+app.get('/api/geraete/:geraetId/asset-lifecycle', async (req, res) => {
+  try {
+    const lifecycle = await db.get(`
+      SELECT * FROM asset_lifecycle WHERE geraet_id = ?
+    `, [req.params.geraetId]);
+
+    if (!lifecycle) {
+      return res.json(createResponse(true, null, 'Kein Asset Lifecycle gefunden'));
+    }
+
+    const responseData = {
+      id: lifecycle.id,
+      geraetId: lifecycle.geraet_id,
+      installationsDatum: lifecycle.installations_datum,
+      inbetriebnahmeDatum: lifecycle.inbetriebnahme_datum,
+      geplantesEOL: lifecycle.geplantes_eol,
+      erwarteteLebensdauer: lifecycle.erwartete_lebensdauer,
+      aktuelleFirmwareVersion: lifecycle.aktuelle_firmware_version,
+      letzteFirmwareUpdate: lifecycle.letzte_firmware_update,
+      wartungsintervall: lifecycle.wartungsintervall,
+      letzteWartung: lifecycle.letzte_wartung,
+      naechsteWartung: lifecycle.naechste_wartung,
+      wartungsverantwortlicher: lifecycle.wartungsverantwortlicher,
+      kritikalitaet: lifecycle.kritikalitaet,
+      ersatzteilVerfuegbarkeit: lifecycle.ersatzteil_verfuegbarkeit,
+      supportStatus: lifecycle.support_status,
+      bemerkungen: lifecycle.bemerkungen
+    };
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle erstellen oder aktualisieren
+app.post('/api/geraete/:geraetId/asset-lifecycle', async (req, res) => {
+  try {
+    const {
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      letzteFirmwareUpdate,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen
+    } = req.body;
+
+    const lifecycleId = uuidv4();
+
+    await db.run(`
+      INSERT OR REPLACE INTO asset_lifecycle (
+        id, geraet_id, installations_datum, inbetriebnahme_datum, geplantes_eol,
+        erwartete_lebensdauer, aktuelle_firmware_version, letzte_firmware_update,
+        wartungsintervall, letzte_wartung, naechste_wartung, wartungsverantwortlicher,
+        kritikalitaet, ersatzteil_verfuegbarkeit, support_status, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      lifecycleId,
+      req.params.geraetId,
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      letzteFirmwareUpdate,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen
+    ]);
+
+    res.json(createResponse(true, { id: lifecycleId }, 'Asset Lifecycle erfolgreich gespeichert'));
+  } catch (error) {
+    console.error('Fehler beim Speichern des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Ersatzteile für ein Gerät abrufen
+app.get('/api/geraete/:geraetId/ersatzteile', async (req, res) => {
+  try {
+    const ersatzteile = await db.all(`
+      SELECT * FROM ersatzteil_management 
+      WHERE geraet_id = ? 
+      ORDER BY kritikalitaet DESC, bezeichnung ASC
+    `, [req.params.geraetId]);
+
+    const responseData = ersatzteile.map(teil => ({
+      id: teil.id,
+      geraetId: teil.geraet_id,
+      teilenummer: teil.teilenummer,
+      bezeichnung: teil.bezeichnung,
+      lieferant: teil.lieferant,
+      lagerbestand: teil.lagerbestand,
+      mindestbestand: teil.mindestbestand,
+      letzteBestellung: teil.letzte_bestellung,
+      kostenstelle: teil.kostenstelle,
+      kritikalitaet: teil.kritikalitaet,
+      lagerort: teil.lagerort,
+      bemerkungen: teil.bemerkungen
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Ersatzteile:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== CHANGE MANAGEMENT APIs ===================
+
+// Change Requests für einen Standort abrufen
+app.get('/api/standorte/:standortId/change-requests', async (req, res) => {
+  try {
+    const { status, prioritaet } = req.query;
+    
+    let whereClause = 'WHERE cm.standort_id = ?';
+    let params = [req.params.standortId];
+    
+    if (status) {
+      whereClause += ' AND cm.status = ?';
+      params.push(status);
+    }
+    
+    if (prioritaet) {
+      whereClause += ' AND cm.prioritaet = ?';
+      params.push(prioritaet);
+    }
+
+    const changes = await db.all(`
+      SELECT cm.*, g.name as geraet_name 
+      FROM change_management cm
+      LEFT JOIN geraete g ON cm.geraet_id = g.id
+      ${whereClause}
+      ORDER BY cm.erstellt_am DESC
+    `, params);
+
+    const responseData = changes.map(change => ({
+      id: change.id,
+      changeNummer: change.change_nummer,
+      titel: change.titel,
+      beschreibung: change.beschreibung,
+      changeTyp: change.change_typ,
+      prioritaet: change.prioritaet,
+      status: change.status,
+      antragsteller: change.antragsteller,
+      geraetId: change.geraet_id,
+      geraetName: change.geraet_name,
+      geplantesStartDatum: change.geplantes_start_datum,
+      geplantesEndeDatum: change.geplantes_ende_datum,
+      erstelltAm: change.erstellt_am
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Change Requests:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Change Request erstellen
+app.post('/api/standorte/:standortId/change-requests', async (req, res) => {
+  try {
+    const {
+      titel,
+      beschreibung,
+      changeTyp,
+      prioritaet,
+      antragsteller,
+      antragsGrund,
+      risikoAnalyse,
+      implementierungsplan,
+      rollbackPlan,
+      testPlan,
+      geraetId,
+      geplantesStartDatum,
+      geplantesEndeDatum
+    } = req.body;
+
+    const changeId = uuidv4();
+    const changeNummer = `CHG-${Date.now()}`;
+
+    await db.run(`
+      INSERT INTO change_management (
+        id, geraet_id, standort_id, change_nummer, titel, beschreibung,
+        change_typ, prioritaet, antragsteller, antrags_grund, risiko_analyse,
+        implementierungs_plan, rollback_plan, test_plan, geplantes_start_datum,
+        geplantes_ende_datum, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Draft')
+    `, [
+      changeId,
+      geraetId,
+      req.params.standortId,
+      changeNummer,
+      titel,
+      beschreibung,
+      changeTyp,
+      prioritaet,
+      antragsteller,
+      antragsGrund,
+      risikoAnalyse,
+      implementierungsplan,
+      rollbackPlan,
+      testPlan,
+      geplantesStartDatum,
+      geplantesEndeDatum
+    ]);
+
+    res.json(createResponse(true, { id: changeId, changeNummer }, 'Change Request erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Change Requests:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== COMPLIANCE APIs ===================
+
+// Compliance Requirements abrufen
+app.get('/api/compliance-requirements', async (req, res) => {
+  try {
+    const { kategorie, standard } = req.query;
+    
+    let whereClause = 'WHERE aktiv = 1';
+    let params = [];
+    
+    if (kategorie) {
+      whereClause += ' AND kategorie = ?';
+      params.push(kategorie);
+    }
+    
+    if (standard) {
+      whereClause += ' AND standard = ?';
+      params.push(standard);
+    }
+
+    const requirements = await db.all(`
+      SELECT * FROM compliance_requirements 
+      ${whereClause}
+      ORDER BY standard, kategorie, anforderung
+    `, params);
+
+    const responseData = requirements.map(req => ({
+      id: req.id,
+      standard: req.standard,
+      anforderung: req.anforderung,
+      beschreibung: req.beschreibung,
+      kategorie: req.kategorie,
+      anwendbarAuf: req.anwendbar_auf ? JSON.parse(req.anwendbar_auf) : [],
+      pruefIntervall: req.pruef_intervall,
+      verantwortlicher: req.verantwortlicher,
+      dokumentationsErforderlich: Boolean(req.dokumentations_erforderlich)
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Compliance Requirements:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Compliance Assessments für ein Gerät abrufen
+app.get('/api/geraete/:geraetId/compliance-assessments', async (req, res) => {
+  try {
+    const assessments = await db.all(`
+      SELECT ca.*, cr.standard, cr.anforderung, cr.kategorie
+      FROM compliance_assessments ca
+      JOIN compliance_requirements cr ON ca.requirement_id = cr.id
+      WHERE ca.geraet_id = ?
+      ORDER BY ca.bewertungs_datum DESC
+    `, [req.params.geraetId]);
+
+    const responseData = assessments.map(assessment => ({
+      id: assessment.id,
+      geraetId: assessment.geraet_id,
+      requirementId: assessment.requirement_id,
+      standard: assessment.standard,
+      anforderung: assessment.anforderung,
+      kategorie: assessment.kategorie,
+      bewertungsDatum: assessment.bewertungs_datum,
+      bewerter: assessment.bewerter,
+      konformitaetsStatus: assessment.konformitaets_status,
+      abweichungen: assessment.abweichungen,
+      massnahmen: assessment.massnahmen,
+      frist: assessment.frist,
+      naechstePruefung: assessment.naechste_pruefung,
+      bemerkungen: assessment.bemerkungen
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Compliance Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== SECURITY ASSESSMENTS ===================
+
+// Security Assessments für einen Standort abrufen
+app.get('/api/standorte/:standortId/security-assessments', async (req, res) => {
+  try {
+    const assessments = await db.all(`
+      SELECT sa.*, g.name as geraet_name
+      FROM security_assessments sa
+      JOIN geraete g ON sa.geraet_id = g.id
+      WHERE g.standort_id = ?
+      ORDER BY sa.letzte_bewertung DESC
+    `, [req.params.standortId]);
+
+    const responseData = assessments.map(assessment => ({
+      id: assessment.id,
+      geraetId: assessment.geraet_id,
+      iec62443Level: assessment.iec62443_level,
+      risikoEinstufung: assessment.risiko_einstufung,
+      bedrohungsanalyse: assessment.bedrohungsanalyse,
+      schutzmaßnahmen: assessment.schutzmassnahmen ? JSON.parse(assessment.schutzmassnahmen) : [],
+      letzteBewertung: assessment.letzte_bewertung,
+      naechsteBewertung: assessment.naechste_bewertung,
+      verantwortlicher: assessment.verantwortlicher,
+      bemerkungen: assessment.bemerkungen,
+      geraetName: assessment.geraet_name
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Security Assessment erstellen
+app.post('/api/geraete/:geraetId/security-assessments', async (req, res) => {
+  try {
+    const {
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      schutzmaßnahmen,
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen
+    } = req.body;
+
+    const assessmentId = uuidv4();
+    const currentDate = new Date().toISOString();
+
+    await db.run(`
+      INSERT INTO security_assessments (
+        id, geraet_id, iec62443_level, risiko_einstufung, bedrohungsanalyse,
+        schutzmassnahmen, letzte_bewertung, naechste_bewertung, verantwortlicher,
+        bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      assessmentId,
+      req.params.geraetId,
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      JSON.stringify(schutzmaßnahmen),
+      currentDate,
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen
+    ]);
+
+    res.json(createResponse(true, { id: assessmentId }, 'Security Assessment erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== ASSET LIFECYCLE ===================
+
+// Asset Lifecycle für einen Standort abrufen
+app.get('/api/standorte/:standortId/asset-lifecycle', async (req, res) => {
+  try {
+    const assets = await db.all(`
+      SELECT al.*, g.name as geraet_name
+      FROM asset_lifecycle al
+      JOIN geraete g ON al.geraet_id = g.id
+      WHERE g.standort_id = ?
+      ORDER BY al.installations_datum DESC
+    `, [req.params.standortId]);
+
+    const responseData = assets.map(asset => ({
+      id: asset.id,
+      geraetId: asset.geraet_id,
+      installationsDatum: asset.installations_datum,
+      inbetriebnahmeDatum: asset.inbetriebnahme_datum,
+      geplantesEOL: asset.geplantes_eol,
+      erwarteteLebensdauer: asset.erwartete_lebensdauer,
+      aktuelleFirmwareVersion: asset.aktuelle_firmware_version,
+      letzteFirmwareUpdate: asset.letzte_firmware_update,
+      wartungsintervall: asset.wartungsintervall,
+      letzteWartung: asset.letzte_wartung,
+      naechsteWartung: asset.naechste_wartung,
+      wartungsverantwortlicher: asset.wartungsverantwortlicher,
+      kritikalitaet: asset.kritikalitaet,
+      ersatzteilVerfuegbarkeit: asset.ersatzteil_verfuegbarkeit,
+      supportStatus: asset.support_status,
+      bemerkungen: asset.bemerkungen,
+      geraetName: asset.geraet_name
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Asset Lifecycle Daten:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle erstellen
+app.post('/api/geraete/:geraetId/asset-lifecycle', async (req, res) => {
+  try {
+    const {
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen
+    } = req.body;
+
+    const lifecycleId = uuidv4();
+
+    await db.run(`
+      INSERT INTO asset_lifecycle (
+        id, geraet_id, installations_datum, inbetriebnahme_datum, geplantes_eol,
+        erwartete_lebensdauer, aktuelle_firmware_version, wartungsintervall,
+        letzte_wartung, naechste_wartung, wartungsverantwortlicher, kritikalitaet,
+        ersatzteil_verfuegbarkeit, support_status, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      lifecycleId,
+      req.params.geraetId,
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen
+    ]);
+
+    res.json(createResponse(true, { id: lifecycleId }, 'Asset Lifecycle erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== COMPLIANCE ASSESSMENTS ===================
+
+// Compliance Assessments für einen Standort abrufen
+app.get('/api/standorte/:standortId/compliance-assessments', async (req, res) => {
+  try {
+    const assessments = await db.all(`
+      SELECT ca.*, cr.standard, cr.anforderung, cr.kategorie, g.name as geraet_name
+      FROM compliance_assessments ca
+      JOIN compliance_requirements cr ON ca.requirement_id = cr.id
+      JOIN geraete g ON ca.geraet_id = g.id
+      WHERE g.standort_id = ?
+      ORDER BY ca.bewertungs_datum DESC
+    `, [req.params.standortId]);
+
+    const responseData = assessments.map(assessment => ({
+      id: assessment.id,
+      geraetId: assessment.geraet_id,
+      requirementId: assessment.requirement_id,
+      standard: assessment.standard,
+      anforderung: assessment.anforderung,
+      kategorie: assessment.kategorie,
+      bewertungsDatum: assessment.bewertungs_datum,
+      bewerter: assessment.bewerter,
+      konformitaetsStatus: assessment.konformitaets_status,
+      abweichungen: assessment.abweichungen,
+      massnahmen: assessment.massnahmen,
+      frist: assessment.frist,
+      naechstePruefung: assessment.naechste_pruefung,
+      bemerkungen: assessment.bemerkungen,
+      geraetName: assessment.geraet_name
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Compliance Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Compliance Assessment erstellen
+app.post('/api/geraete/:geraetId/compliance-assessments', async (req, res) => {
+  try {
+    const {
+      requirementId,
+      bewerter,
+      konformitaetsStatus,
+      abweichungen,
+      massnahmen,
+      frist,
+      naechstePruefung,
+      bemerkungen
+    } = req.body;
+
+    const assessmentId = uuidv4();
+    const currentDate = new Date().toISOString();
+
+    await db.run(`
+      INSERT INTO compliance_assessments (
+        id, geraet_id, requirement_id, bewertungs_datum, bewerter,
+        konformitaets_status, abweichungen, massnahmen, frist,
+        naechste_pruefung, bemerkungen
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      assessmentId,
+      req.params.geraetId,
+      requirementId,
+      currentDate,
+      bewerter,
+      konformitaetsStatus,
+      abweichungen,
+      massnahmen,
+      frist,
+      naechstePruefung,
+      bemerkungen
+    ]);
+
+    res.json(createResponse(true, { id: assessmentId }, 'Compliance Assessment erstellt'));
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Compliance Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== GERÄTE API ERWEITERUNGEN ===================
+
+// Geräte API erweitern um Purdue Level und Security Zone
+app.patch('/api/geraete/:id/it-ot-properties', async (req, res) => {
+  try {
+    const { purdueLevel, securityZone } = req.body;
+
+    await db.run(`
+      UPDATE geraete 
+      SET purdue_level = ?, security_zone = ?
+      WHERE id = ?
+    `, [purdueLevel, securityZone, req.params.id]);
+
+    res.json(createResponse(true, null, 'IT/OT-Eigenschaften erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren der IT/OT-Eigenschaften:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Erweiterte Gerätesuche mit IT/OT-Filtern
+app.get('/api/geraete/search', async (req, res) => {
+  try {
+    const { 
+      standortId, 
+      purdueLevel, 
+      securityZone, 
+      kritikalitaet, 
+      geraetekategorie,
+      search 
+    } = req.query;
+
+    let whereClause = 'WHERE 1=1';
+    let params = [];
+
+    if (standortId) {
+      whereClause += ' AND g.standort_id = ?';
+      params.push(standortId);
+    }
+
+    if (purdueLevel) {
+      whereClause += ' AND g.purdue_level = ?';
+      params.push(purdueLevel);
+    }
+
+    if (securityZone) {
+      whereClause += ' AND g.security_zone = ?';
+      params.push(securityZone);
+    }
+
+    if (geraetekategorie) {
+      whereClause += ' AND g.geraetekategorie = ?';
+      params.push(geraetekategorie);
+    }
+
+    if (kritikalitaet) {
+      whereClause += ' AND al.kritikalitaet = ?';
+      params.push(kritikalitaet);
+    }
+
+    if (search) {
+      whereClause += ' AND (g.name LIKE ? OR g.modell LIKE ? OR g.seriennummer LIKE ?)';
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern);
+    }
+
+    const geraete = await db.all(`
+      SELECT g.*, al.kritikalitaet, al.naechste_wartung, s.name as standort_name
+      FROM geraete g
+      LEFT JOIN asset_lifecycle al ON g.id = al.geraet_id
+      JOIN standorte s ON g.standort_id = s.id
+      ${whereClause}
+      ORDER BY g.name
+    `, params);
+
+    const responseData = geraete.map(geraet => ({
+      id: geraet.id,
+      name: geraet.name,
+      hostname: geraet.hostname,
+      geraetetyp: geraet.geraetetyp,
+      modell: geraet.modell,
+      seriennummer: geraet.seriennummer,
+      standortName: geraet.standort_name,
+      purdueLevel: geraet.purdue_level,
+      securityZone: geraet.security_zone,
+      geraetekategorie: geraet.geraetekategorie,
+      kritikalitaet: geraet.kritikalitaet,
+      naechsteWartung: geraet.naechste_wartung
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler bei der erweiterten Gerätesuche:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== ITOT VERWALTUNG APIs ===================
+
+// ITOTVerwaltung Dashboard-Daten für einen Standort abrufen
+app.get('/api/standorte/:standortId/itot-dashboard', async (req, res) => {
+  try {
+    const standortId = req.params.standortId;
+    
+    // Geräte-Statistiken
+    const geraeteStats = await db.get(`
+      SELECT 
+        COUNT(*) as gesamt,
+        COUNT(CASE WHEN geraetekategorie = 'IT' THEN 1 END) as it_geraete,
+        COUNT(CASE WHEN geraetekategorie = 'OT' THEN 1 END) as ot_geraete,
+        COUNT(CASE WHEN geraetekategorie = 'Hybrid' THEN 1 END) as hybrid_geraete
+      FROM geraete 
+      WHERE standort_id = ?
+    `, [standortId]);
+
+    // Purdue Model Verteilung
+    const purdueStats = await db.all(`
+      SELECT purdue_level, COUNT(*) as anzahl
+      FROM geraete 
+      WHERE standort_id = ? AND purdue_level IS NOT NULL AND purdue_level != 'Nicht definiert'
+      GROUP BY purdue_level
+    `, [standortId]);
+
+    // Security Zones Verteilung
+    const securityZoneStats = await db.all(`
+      SELECT security_zone, COUNT(*) as anzahl
+      FROM geraete 
+      WHERE standort_id = ? AND security_zone IS NOT NULL AND security_zone != 'Nicht definiert'
+      GROUP BY security_zone
+    `, [standortId]);
+
+    // Security Assessments Statistiken
+    const securityAssessmentStats = await db.get(`
+      SELECT 
+        COUNT(*) as gesamt,
+        COUNT(CASE WHEN sa.risiko_einstufung = 'Niedrig' THEN 1 END) as niedrig,
+        COUNT(CASE WHEN sa.risiko_einstufung = 'Mittel' THEN 1 END) as mittel,
+        COUNT(CASE WHEN sa.risiko_einstufung = 'Hoch' THEN 1 END) as hoch,
+        COUNT(CASE WHEN sa.risiko_einstufung = 'Kritisch' THEN 1 END) as kritisch
+      FROM security_assessments sa
+      JOIN geraete g ON sa.geraet_id = g.id
+      WHERE g.standort_id = ?
+    `, [standortId]);
+
+    // Communication Matrix Statistiken
+    const communicationStats = await db.get(`
+      SELECT 
+        COUNT(*) as gesamt,
+        COUNT(CASE WHEN sicherheitsrelevant = 1 THEN 1 END) as sicherheitsrelevant,
+        COUNT(CASE WHEN real_time_requirement = 1 THEN 1 END) as real_time
+      FROM communication_matrix
+      WHERE standort_id = ?
+    `, [standortId]);
+
+    // Change Requests Statistiken
+    const changeRequestStats = await db.get(`
+      SELECT 
+        COUNT(*) as gesamt,
+        COUNT(CASE WHEN status = 'Draft' THEN 1 END) as draft,
+        COUNT(CASE WHEN status = 'In Progress' THEN 1 END) as in_progress,
+        COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed
+      FROM change_management
+      WHERE standort_id = ?
+    `, [standortId]);
+
+    // Compliance Assessments Statistiken
+    const complianceStats = await db.get(`
+      SELECT 
+        COUNT(*) as gesamt,
+        COUNT(CASE WHEN ca.konformitaets_status = 'Compliant' THEN 1 END) as compliant,
+        COUNT(CASE WHEN ca.konformitaets_status = 'Non-Compliant' THEN 1 END) as non_compliant,
+        COUNT(CASE WHEN ca.konformitaets_status = 'Partially Compliant' THEN 1 END) as partially_compliant
+      FROM compliance_assessments ca
+      JOIN geraete g ON ca.geraet_id = g.id
+      WHERE g.standort_id = ?
+    `, [standortId]);
+
+    const dashboardData = {
+      geraeteStats: {
+        gesamt: geraeteStats.gesamt || 0,
+        itGeraete: geraeteStats.it_geraete || 0,
+        otGeraete: geraeteStats.ot_geraete || 0,
+        hybridGeraete: geraeteStats.hybrid_geraete || 0
+      },
+      purdueStats: purdueStats.map(stat => ({
+        level: stat.purdue_level,
+        anzahl: stat.anzahl
+      })),
+      securityZoneStats: securityZoneStats.map(stat => ({
+        zone: stat.security_zone,
+        anzahl: stat.anzahl
+      })),
+      securityAssessmentStats: {
+        gesamt: securityAssessmentStats.gesamt || 0,
+        niedrig: securityAssessmentStats.niedrig || 0,
+        mittel: securityAssessmentStats.mittel || 0,
+        hoch: securityAssessmentStats.hoch || 0,
+        kritisch: securityAssessmentStats.kritisch || 0
+      },
+      communicationStats: {
+        gesamt: communicationStats.gesamt || 0,
+        sicherheitsrelevant: communicationStats.sicherheitsrelevant || 0,
+        realTime: communicationStats.real_time || 0
+      },
+      changeRequestStats: {
+        gesamt: changeRequestStats.gesamt || 0,
+        draft: changeRequestStats.draft || 0,
+        inProgress: changeRequestStats.in_progress || 0,
+        completed: changeRequestStats.completed || 0
+      },
+      complianceStats: {
+        gesamt: complianceStats.gesamt || 0,
+        compliant: complianceStats.compliant || 0,
+        nonCompliant: complianceStats.non_compliant || 0,
+        partiallyCompliant: complianceStats.partially_compliant || 0
+      }
+    };
+
+    res.json(createResponse(true, dashboardData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der ITOTVerwaltung Dashboard-Daten:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Security Assessment aktualisieren
+app.put('/api/security-assessments/:id', async (req, res) => {
+  try {
+    const {
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      schutzmaßnahmen,
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen
+    } = req.body;
+
+    const existierend = await db.get('SELECT id FROM security_assessments WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Security Assessment nicht gefunden'));
+    }
+
+    await db.run(`
+      UPDATE security_assessments SET
+        iec62443_level = ?,
+        risiko_einstufung = ?,
+        bedrohungsanalyse = ?,
+        schutzmassnahmen = ?,
+        naechste_bewertung = ?,
+        verantwortlicher = ?,
+        bemerkungen = ?,
+        aktualisiert_am = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      iec62443Level,
+      risikoEinstufung,
+      bedrohungsanalyse,
+      JSON.stringify(schutzmaßnahmen || []),
+      naechsteBewertung,
+      verantwortlicher,
+      bemerkungen,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Security Assessment erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Security Assessment löschen
+app.delete('/api/security-assessments/:id', async (req, res) => {
+  try {
+    const existierend = await db.get('SELECT id FROM security_assessments WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Security Assessment nicht gefunden'));
+    }
+
+    await db.run('DELETE FROM security_assessments WHERE id = ?', [req.params.id]);
+
+    res.json(createResponse(true, null, 'Security Assessment erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Security Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Communication Matrix Eintrag aktualisieren
+app.put('/api/communication-matrix/:id', async (req, res) => {
+  try {
+    const {
+      quellGeraetId,
+      zielGeraetId,
+      protokoll,
+      richtung,
+      datentyp,
+      zykluszeit,
+      prioritaet,
+      realTimeRequirement,
+      maxLatenz,
+      maxJitter,
+      sicherheitsrelevant,
+      verschluesselung,
+      authentifizierung,
+      bemerkungen
+    } = req.body;
+
+    const existierend = await db.get('SELECT id FROM communication_matrix WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Communication Matrix Eintrag nicht gefunden'));
+    }
+
+    await db.run(`
+      UPDATE communication_matrix SET
+        quell_geraet_id = ?,
+        ziel_geraet_id = ?,
+        protokoll = ?,
+        richtung = ?,
+        datentyp = ?,
+        zykluszeit = ?,
+        prioritaet = ?,
+        real_time_requirement = ?,
+        max_latenz = ?,
+        max_jitter = ?,
+        sicherheitsrelevant = ?,
+        verschluesselung = ?,
+        authentifizierung = ?,
+        bemerkungen = ?,
+        aktualisiert_am = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      quellGeraetId,
+      zielGeraetId,
+      protokoll,
+      richtung,
+      datentyp,
+      zykluszeit,
+      prioritaet,
+      realTimeRequirement ? 1 : 0,
+      maxLatenz,
+      maxJitter,
+      sicherheitsrelevant ? 1 : 0,
+      verschluesselung ? 1 : 0,
+      authentifizierung ? 1 : 0,
+      bemerkungen,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Communication Matrix Eintrag erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Communication Matrix Eintrags:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Communication Matrix Eintrag löschen
+app.delete('/api/communication-matrix/:id', async (req, res) => {
+  try {
+    const existierend = await db.get('SELECT id FROM communication_matrix WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Communication Matrix Eintrag nicht gefunden'));
+    }
+
+    await db.run('DELETE FROM communication_matrix WHERE id = ?', [req.params.id]);
+
+    res.json(createResponse(true, null, 'Communication Matrix Eintrag erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Communication Matrix Eintrags:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Change Request aktualisieren
+app.put('/api/change-requests/:id', async (req, res) => {
+  try {
+    const {
+      titel,
+      beschreibung,
+      changeTyp,
+      prioritaet,
+      antragsteller,
+      antragsGrund,
+      risikoAnalyse,
+      implementierungsplan,
+      rollbackPlan,
+      testPlan,
+      geraetId,
+      geplantesStartDatum,
+      geplantesEndeDatum,
+      status
+    } = req.body;
+
+    const existierend = await db.get('SELECT id FROM change_management WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Change Request nicht gefunden'));
+    }
+
+    await db.run(`
+      UPDATE change_management SET
+        titel = ?,
+        beschreibung = ?,
+        change_typ = ?,
+        prioritaet = ?,
+        antragsteller = ?,
+        antrags_grund = ?,
+        risiko_analyse = ?,
+        implementierungs_plan = ?,
+        rollback_plan = ?,
+        test_plan = ?,
+        geraet_id = ?,
+        geplantes_start_datum = ?,
+        geplantes_ende_datum = ?,
+        status = ?,
+        aktualisiert_am = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      titel,
+      beschreibung,
+      changeTyp,
+      prioritaet,
+      antragsteller,
+      antragsGrund,
+      risikoAnalyse,
+      implementierungsplan,
+      rollbackPlan,
+      testPlan,
+      geraetId,
+      geplantesStartDatum,
+      geplantesEndeDatum,
+      status,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Change Request erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Change Requests:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Change Request löschen
+app.delete('/api/change-requests/:id', async (req, res) => {
+  try {
+    const existierend = await db.get('SELECT id FROM change_management WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Change Request nicht gefunden'));
+    }
+
+    await db.run('DELETE FROM change_management WHERE id = ?', [req.params.id]);
+
+    res.json(createResponse(true, null, 'Change Request erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Change Requests:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle aktualisieren
+app.put('/api/asset-lifecycle/:id', async (req, res) => {
+  try {
+    const {
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      letzteFirmwareUpdate,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen
+    } = req.body;
+
+    const existierend = await db.get('SELECT id FROM asset_lifecycle WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Asset Lifecycle nicht gefunden'));
+    }
+
+    await db.run(`
+      UPDATE asset_lifecycle SET
+        installations_datum = ?,
+        inbetriebnahme_datum = ?,
+        geplantes_eol = ?,
+        erwartete_lebensdauer = ?,
+        aktuelle_firmware_version = ?,
+        letzte_firmware_update = ?,
+        wartungsintervall = ?,
+        letzte_wartung = ?,
+        naechste_wartung = ?,
+        wartungsverantwortlicher = ?,
+        kritikalitaet = ?,
+        ersatzteil_verfuegbarkeit = ?,
+        support_status = ?,
+        bemerkungen = ?,
+        aktualisiert_am = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      installationsDatum,
+      inbetriebnahmeDatum,
+      geplantesEOL,
+      erwarteteLebensdauer,
+      aktuelleFirmwareVersion,
+      letzteFirmwareUpdate,
+      wartungsintervall,
+      letzteWartung,
+      naechsteWartung,
+      wartungsverantwortlicher,
+      kritikalitaet,
+      ersatzteilVerfuegbarkeit,
+      supportStatus,
+      bemerkungen,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Asset Lifecycle erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle löschen
+app.delete('/api/asset-lifecycle/:id', async (req, res) => {
+  try {
+    const existierend = await db.get('SELECT id FROM asset_lifecycle WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Asset Lifecycle nicht gefunden'));
+    }
+
+    await db.run('DELETE FROM asset_lifecycle WHERE id = ?', [req.params.id]);
+
+    res.json(createResponse(true, null, 'Asset Lifecycle erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Compliance Assessment aktualisieren
+app.put('/api/compliance-assessments/:id', async (req, res) => {
+  try {
+    const {
+      requirementId,
+      bewerter,
+      konformitaetsStatus,
+      abweichungen,
+      massnahmen,
+      frist,
+      naechstePruefung,
+      bemerkungen
+    } = req.body;
+
+    const existierend = await db.get('SELECT id FROM compliance_assessments WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Compliance Assessment nicht gefunden'));
+    }
+
+    await db.run(`
+      UPDATE compliance_assessments SET
+        requirement_id = ?,
+        bewerter = ?,
+        konformitaets_status = ?,
+        abweichungen = ?,
+        massnahmen = ?,
+        frist = ?,
+        naechste_pruefung = ?,
+        bemerkungen = ?,
+        aktualisiert_am = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      requirementId,
+      bewerter,
+      konformitaetsStatus,
+      abweichungen,
+      massnahmen,
+      frist,
+      naechstePruefung,
+      bemerkungen,
+      req.params.id
+    ]);
+
+    res.json(createResponse(true, null, 'Compliance Assessment erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren des Compliance Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Compliance Assessment löschen
+app.delete('/api/compliance-assessments/:id', async (req, res) => {
+  try {
+    const existierend = await db.get('SELECT id FROM compliance_assessments WHERE id = ?', [req.params.id]);
+    if (!existierend) {
+      return res.status(404).json(createResponse(false, null, 'Compliance Assessment nicht gefunden'));
+    }
+
+    await db.run('DELETE FROM compliance_assessments WHERE id = ?', [req.params.id]);
+
+    res.json(createResponse(true, null, 'Compliance Assessment erfolgreich gelöscht'));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Compliance Assessments:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle für ein Gerät abrufen
+app.get('/api/geraete/:geraetId/asset-lifecycle', async (req, res) => {
+  try {
+    const lifecycle = await db.get(`
+      SELECT * FROM asset_lifecycle WHERE geraet_id = ?
+    `, [req.params.geraetId]);
+
+    if (!lifecycle) {
+      return res.json(createResponse(true, null, 'Kein Asset Lifecycle gefunden'));
+    }
+
+    const responseData = {
+      id: lifecycle.id,
+      geraetId: lifecycle.geraet_id,
+      installationsDatum: lifecycle.installations_datum,
+      inbetriebnahmeDatum: lifecycle.inbetriebnahme_datum,
+      geplantesEOL: lifecycle.geplantes_eol,
+      erwarteteLebensdauer: lifecycle.erwartete_lebensdauer,
+      aktuelleFirmwareVersion: lifecycle.aktuelle_firmware_version,
+      letzteFirmwareUpdate: lifecycle.letzte_firmware_update,
+      wartungsintervall: lifecycle.wartungsintervall,
+      letzteWartung: lifecycle.letzte_wartung,
+      naechsteWartung: lifecycle.naechste_wartung,
+      wartungsverantwortlicher: lifecycle.wartungsverantwortlicher,
+      kritikalitaet: lifecycle.kritikalitaet,
+      ersatzteilVerfuegbarkeit: lifecycle.ersatzteil_verfuegbarkeit,
+      supportStatus: lifecycle.support_status,
+      bemerkungen: lifecycle.bemerkungen
+    };
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Asset Lifecycle:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Asset Lifecycle für einen Standort abrufen
+app.get('/api/standorte/:standortId/asset-lifecycle', async (req, res) => {
+  try {
+    const lifecycles = await db.all(`
+      SELECT al.*, g.name as geraet_name
+      FROM asset_lifecycle al
+      JOIN geraete g ON al.geraet_id = g.id
+      WHERE g.standort_id = ?
+      ORDER BY al.naechste_wartung ASC
+    `, [req.params.standortId]);
+
+    const responseData = lifecycles.map(lifecycle => ({
+      id: lifecycle.id,
+      geraetId: lifecycle.geraet_id,
+      geraetName: lifecycle.geraet_name,
+      installationsDatum: lifecycle.installations_datum,
+      inbetriebnahmeDatum: lifecycle.inbetriebnahme_datum,
+      geplantesEOL: lifecycle.geplantes_eol,
+      erwarteteLebensdauer: lifecycle.erwartete_lebensdauer,
+      aktuelleFirmwareVersion: lifecycle.aktuelle_firmware_version,
+      letzteFirmwareUpdate: lifecycle.letzte_firmware_update,
+      wartungsintervall: lifecycle.wartungsintervall,
+      letzteWartung: lifecycle.letzte_wartung,
+      naechsteWartung: lifecycle.naechste_wartung,
+      wartungsverantwortlicher: lifecycle.wartungsverantwortlicher,
+      kritikalitaet: lifecycle.kritikalitaet,
+      ersatzteilVerfuegbarkeit: lifecycle.ersatzteil_verfuegbarkeit,
+      supportStatus: lifecycle.support_status,
+      bemerkungen: lifecycle.bemerkungen
+    }));
+
+    res.json(createResponse(true, responseData));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Asset Lifecycle Daten:', error);
     res.status(500).json(createResponse(false, null, '', error.message));
   }
 });

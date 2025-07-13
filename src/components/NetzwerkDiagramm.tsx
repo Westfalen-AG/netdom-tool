@@ -51,6 +51,7 @@ import { ThemeContext, StandortContext } from '../App';
 // Gerätetype zu Farbe Mapping
 const getNodeColor = (geraetetyp: GeraeteTyp): string => {
   const colorMap: Record<string, string> = {
+    // IT-Geräte
     'Router': '#f44336',
     'Switch': '#2196f3',
     'SD-WAN Gateway': '#ff9800',
@@ -67,6 +68,21 @@ const getNodeColor = (geraetetyp: GeraeteTyp): string => {
     'Server': '#3f51b5',
     'Sensor': '#009688',
     'Sonstiges': '#9e9e9e',
+    // OT-Geräte
+    'Verdichter': '#ff6b35',
+    'SPS': '#1976d2',
+    'Industrial Switch': '#388e3c',
+    'H2-Versorger': '#2e7d32',
+    'IT/OT-Router': '#f57c00',
+    'Gasanalysator': '#7b1fa2',
+    'Drucksensor': '#5d4037',
+    'Temperatursensor': '#d32f2f',
+    'Durchflussmesser': '#0288d1',
+    'Ventilstation': '#689f38',
+    'Notabschaltung': '#c62828',
+    'Frequenzumrichter': '#455a64',
+    'Transformator': '#424242',
+    'USV': '#558b2f',
   };
   return colorMap[geraetetyp] || '#9e9e9e';
 };
@@ -119,6 +135,7 @@ const GeraetNode = ({ data }: { data: any }) => {
   
   const getGeraetIcon = (geraetetyp: GeraeteTyp) => {
     switch (geraetetyp) {
+      // IT-Geräte
       case 'Router': return '🌐';
       case 'Switch': return '🔀';
       case 'SD-WAN Gateway': return '🛡️';
@@ -130,6 +147,25 @@ const GeraetNode = ({ data }: { data: any }) => {
       case 'Server': return '🖥️';
       case 'NVR': return '💾';
       case 'Sensor': return '🔍';
+      case 'AI-Port': return '🔌';
+      case 'Zugangskontrolle': return '🔐';
+      case 'Serial Server': return '📡';
+      case 'HMI': return '🖥️';
+      // OT-Geräte  
+      case 'Verdichter': return '⚙️';
+      case 'SPS': return '🔧';
+      case 'Industrial Switch': return '🏭';
+      case 'H2-Versorger': return '💨';
+      case 'IT/OT-Router': return '🔄';
+      case 'Gasanalysator': return '🧪';
+      case 'Drucksensor': return '📊';
+      case 'Temperatursensor': return '🌡️';
+      case 'Durchflussmesser': return '💧';
+      case 'Ventilstation': return '⚡';
+      case 'Notabschaltung': return '🚨';
+      case 'Frequenzumrichter': return '⚙️';
+      case 'Transformator': return '🔌';
+      case 'USV': return '🔋';
       default: return '📦';
     }
   };
@@ -426,8 +462,20 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
+  // Filter-States
+  const [geraetetypFilter, setGeraetetypFilter] = useState<string>('alle');
+  const [netzbereichFilter, setNetzbereichFilter] = useState<string>('alle');
+  const [kategorieFilter, setKategorieFilter] = useState<string>('alle');
+  
   const theme = useTheme();
   const { darkMode } = useContext(ThemeContext);
+
+  // Diagramm neu generieren wenn Filter sich ändern
+  React.useEffect(() => {
+    if (geraete.length > 0 && verbindungen.length > 0) {
+      generiereNetzwerkDiagramm(geraete, verbindungen);
+    }
+  }, [geraetetypFilter, netzbereichFilter, kategorieFilter, geraete, verbindungen]);
 
   // Diagrammdaten laden (verwendet vollständige Geräte-API)
   const ladeDiagrammDaten = async (standortId: string) => {
@@ -499,21 +547,37 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   const applyAutoLayoutToNodes = (inputNodes: Node[]): Node[] => {
     // Definiere die gewünschte Reihenfolge der Gerätetypen
     const geraeteReihenfolge = [
+      // IT-Geräte
       'Router', // Modem-Kategorie
       'SD-WAN Gateway',
       'Firewall', 
       'Switch',
-      'Access Point', // Sonstige Kategorie
+      'Access Point',
       'Server',
       'NVR',
       'Kamera',
       'VOIP-Phone',
       'Drucker',
-      'Sensor',
       'AI-Port',
       'Zugangskontrolle',
       'Serial Server',
       'HMI',
+      'Sensor',
+      // OT-Geräte
+      'IT/OT-Router',
+      'SPS',
+      'Industrial Switch',
+      'Verdichter',
+      'H2-Versorger',
+      'Gasanalysator',
+      'Drucksensor',
+      'Temperatursensor',
+      'Durchflussmesser',
+      'Ventilstation',
+      'Frequenzumrichter',
+      'Transformator',
+      'USV',
+      'Notabschaltung',
       'Sonstiges'
     ];
 
@@ -569,10 +633,42 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
 
   const generiereNetzwerkDiagramm = (geraeteData: Geraet[], verbindungenData: any[]) => {
     
+    // Filter anwenden
+    const gefilterteGeraete = geraeteData.filter(geraet => {
+      // Gerätetyp-Filter
+      if (geraetetypFilter !== 'alle' && geraet.geraetetyp !== geraetetypFilter) {
+        return false;
+      }
+      
+      // Kategorie-Filter (IT/OT/Hybrid)
+      if (kategorieFilter !== 'alle' && geraet.geraetekategorie !== kategorieFilter) {
+        return false;
+      }
+      
+      // Netzbereich-Filter
+      if (netzbereichFilter !== 'alle') {
+        const hatNetzbereich = geraet.ipKonfigurationen?.some(ip => 
+          ip.netzbereichTyp === netzbereichFilter
+        );
+        if (!hatNetzbereich) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    // Verbindungen basierend auf gefilterten Geräten filtern
+    const gefilterteVerbindungen = verbindungenData.filter(verbindung => {
+      const quellGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.quell_geraet_id);
+      const zielGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.ziel_geraet_id);
+      return quellGeraetVorhanden && zielGeraetVorhanden;
+    });
+    
     // Nodes erstellen mit erweiterten Daten und berechneten Port-Belegungen
-    const tempNodes: Node[] = geraeteData.map((geraet, index) => {
+    const tempNodes: Node[] = gefilterteGeraete.map((geraet, index) => {
       // Zähle Verbindungen für dieses Gerät
-      const anzahlVerbindungen = verbindungenData.filter(
+      const anzahlVerbindungen = gefilterteVerbindungen.filter(
         v => v.quell_geraet_id === geraet.id || v.ziel_geraet_id === geraet.id
       ).length;
 
@@ -629,23 +725,24 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       }))
     });
 
-    const filteredVerbindungen = verbindungenData.filter(verbindung => {
+    // Bereits gefilterte Verbindungen verwenden
+    const filteredVerbindungen = gefilterteVerbindungen.filter(verbindung => {
       // Prüfe ob Quell- und Zielgerät in den Nodes existieren
-      const hasSource = geraeteData.some(g => g.id === verbindung.quell_geraet_id);
-      const hasTarget = geraeteData.some(g => g.id === verbindung.ziel_geraet_id);
+      const hasSource = gefilterteGeraete.some(g => g.id === verbindung.quell_geraet_id);
+      const hasTarget = gefilterteGeraete.some(g => g.id === verbindung.ziel_geraet_id);
       
       if (!hasSource) {
         console.warn('❌ Verbindung übersprungen - Quellgerät nicht gefunden:', {
           verbindungId: verbindung.id,
           quellGeraetId: verbindung.quell_geraet_id,
-          verfuegbareIds: geraeteData.map(g => g.id)
+          verfuegbareIds: gefilterteGeraete.map(g => g.id)
         });
       }
       if (!hasTarget) {
         console.warn('❌ Verbindung übersprungen - Zielgerät nicht gefunden:', {
           verbindungId: verbindung.id, 
           zielGeraetId: verbindung.ziel_geraet_id,
-          verfuegbareIds: geraeteData.map(g => g.id)
+          verfuegbareIds: gefilterteGeraete.map(g => g.id)
         });
       }
       
@@ -662,8 +759,8 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     const nonStackConnections: any[] = [];
     
     filteredVerbindungen.forEach(verbindung => {
-      const quellGeraet = geraeteData.find(g => g.id === verbindung.quell_geraet_id);
-      const zielGeraet = geraeteData.find(g => g.id === verbindung.ziel_geraet_id);
+      const quellGeraet = gefilterteGeraete.find(g => g.id === verbindung.quell_geraet_id);
+      const zielGeraet = gefilterteGeraete.find(g => g.id === verbindung.ziel_geraet_id);
       const isStackConnection = quellGeraet?.geraetetyp === 'Switch' && zielGeraet?.geraetetyp === 'Switch';
       
       if (isStackConnection) {
@@ -688,8 +785,8 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
           : getKabelFarbe(verbindung.kabeltyp || 'Sonstiges');
 
         // Erstelle aussagekräftiges Label
-        const quellGeraet = geraeteData.find(g => g.id === verbindung.quell_geraet_id);
-        const zielGeraet = geraeteData.find(g => g.id === verbindung.ziel_geraet_id);
+        const quellGeraet = gefilterteGeraete.find(g => g.id === verbindung.quell_geraet_id);
+        const zielGeraet = gefilterteGeraete.find(g => g.id === verbindung.ziel_geraet_id);
         
         const labelText = `${quellGeraet?.name || 'Unbekannt'}:${verbindung.quell_port} ⟷ ${zielGeraet?.name || 'Unbekannt'}:${verbindung.ziel_port}`;
         
@@ -698,6 +795,10 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
           if (kabeltyp.includes('Fibre') || kabeltyp.includes('SFP')) return 4;
           if (kabeltyp.includes('Cat6a')) return 3;
           if (kabeltyp.includes('Cat6')) return 2.5;
+          // Profinet-Kabel haben unterschiedliche Bandbreiten
+          if (kabeltyp.includes('Profinet')) return 3; // Industrial Ethernet, oft Gigabit
+          if (kabeltyp.includes('M12 8-polig')) return 3; // 8-polig für höhere Geschwindigkeiten
+          if (kabeltyp.includes('M12 4-polig') || kabeltyp.includes('M8')) return 2; // Standard Industrial
           return 2;
         };
 
@@ -1086,6 +1187,16 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       'SFP/SFP+': '#9c27b0',
       'QSFP': '#e91e63',
       'Coax': '#9c27b0',
+      // Profinet-Kabel (grüne Töne für Industrial Ethernet)
+      'Profinet Standard': '#2e7d32',
+      'Profinet Fast Connect': '#388e3c',
+      'Profinet Robust': '#43a047',
+      'Profinet Marine': '#4caf50',
+      // M12/M8 Industriesteckverbindungen (blaue Töne)
+      'M12 4-polig': '#1976d2',
+      'M12 8-polig': '#1565c0',
+      'M8 3-polig': '#0d47a1',
+      'M8 4-polig': '#0277bd',
       'Sonstiges': '#607d8b',
     };
     return farbMap[kabeltyp] || '#607d8b';
@@ -1171,25 +1282,41 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     }
   };
 
-  // Auto-Layout mit horizontaler Anordnung: Modem > SD-WAN Gateway > Firewall > Switch > Sonstiges
+  // Auto-Layout mit horizontaler Anordnung: IT-Geräte > OT-Geräte > Sonstiges
   const autoLayout = () => {
     // Definiere die gewünschte Reihenfolge der Gerätetypen
     const geraeteReihenfolge = [
+      // IT-Geräte
       'Router', // Modem-Kategorie
       'SD-WAN Gateway',
       'Firewall', 
       'Switch',
-      'Access Point', // Sonstige Kategorie
+      'Access Point',
       'Server',
       'NVR',
       'Kamera',
       'VOIP-Phone',
       'Drucker',
-      'Sensor',
       'AI-Port',
       'Zugangskontrolle',
       'Serial Server',
       'HMI',
+      'Sensor',
+      // OT-Geräte
+      'IT/OT-Router',
+      'SPS',
+      'Industrial Switch',
+      'Verdichter',
+      'H2-Versorger',
+      'Gasanalysator',
+      'Drucksensor',
+      'Temperatursensor',
+      'Durchflussmesser',
+      'Ventilstation',
+      'Frequenzumrichter',
+      'Transformator',
+      'USV',
+      'Notabschaltung',
       'Sonstiges'
     ];
 
@@ -1293,7 +1420,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     <Box sx={{ height: '100vh', width: '100%' }}>
       {/* Header */}
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="h5">
             Netzwerkdiagramm: {selectedStandortData?.name}
           </Typography>
@@ -1350,6 +1477,70 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
               PDF Export
             </Button>
           </Box>
+        </Box>
+        
+        {/* Filter-Bereich */}
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="subtitle2">Filter:</Typography>
+          
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Gerätetyp</InputLabel>
+            <Select
+              value={geraetetypFilter}
+              onChange={(e) => setGeraetetypFilter(e.target.value)}
+              label="Gerätetyp"
+            >
+              <MenuItem value="alle">Alle Gerätetypen</MenuItem>
+              {Array.from(new Set(geraete.map(g => g.geraetetyp))).sort().map(typ => (
+                <MenuItem key={typ} value={typ}>{typ}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Kategorie</InputLabel>
+            <Select
+              value={kategorieFilter}
+              onChange={(e) => setKategorieFilter(e.target.value)}
+              label="Kategorie"
+            >
+              <MenuItem value="alle">Alle Kategorien</MenuItem>
+              <MenuItem value="IT">IT-Geräte</MenuItem>
+              <MenuItem value="OT">OT-Geräte</MenuItem>
+              <MenuItem value="Hybrid">Hybrid-Geräte</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Netzbereich</InputLabel>
+            <Select
+              value={netzbereichFilter}
+              onChange={(e) => setNetzbereichFilter(e.target.value)}
+              label="Netzbereich"
+            >
+              <MenuItem value="alle">Alle Netzbereiche</MenuItem>
+              <MenuItem value="IT">IT-Netz</MenuItem>
+              <MenuItem value="OT">OT-Netz</MenuItem>
+              <MenuItem value="SPS">SPS-Netz</MenuItem>
+              <MenuItem value="DMZ">DMZ</MenuItem>
+              <MenuItem value="Management">Management</MenuItem>
+              <MenuItem value="Sonstiges">Sonstiges</MenuItem>
+            </Select>
+          </FormControl>
+          
+          {(geraetetypFilter !== 'alle' || kategorieFilter !== 'alle' || netzbereichFilter !== 'alle') && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setGeraetetypFilter('alle');
+                setKategorieFilter('alle');
+                setNetzbereichFilter('alle');
+              }}
+            >
+              Filter zurücksetzen
+            </Button>
+          )}
         </Box>
       </Paper>
 

@@ -34,6 +34,77 @@ interface ChangelogEntry {
 const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
+      version: '1.6.0',
+      date: '2025-07-13',
+      type: 'minor',
+      changes: [
+        {
+          type: 'added',
+          description: 'IT/OT-Verwaltung mit vollständiger Infrastruktur-Management-Funktionalität implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Dashboard mit umfassenden Statistiken für IT/OT-Geräte, Purdue Model und Security Zones'
+        },
+        {
+          type: 'added',
+          description: 'Purdue Model Integration mit Klassifizierung von Level 0 bis Level 5'
+        },
+        {
+          type: 'added',
+          description: 'Security Zones Verwaltung (Manufacturing, Control, DMZ, Corporate Network, Safety, Remote Access)'
+        },
+        {
+          type: 'added',
+          description: 'Security Assessments nach IEC 62443 Standard mit Risikoanalyse und Bedrohungsbewertung'
+        },
+        {
+          type: 'added',
+          description: 'Communication Matrix für industrielle Protokolle (PROFINET, Modbus TCP, OPC UA, etc.)'
+        },
+        {
+          type: 'added',
+          description: 'Change Management System mit Standard-, Normal- und Emergency-Changes'
+        },
+        {
+          type: 'added',
+          description: 'Asset Lifecycle Management mit Wartungsplanung und Kritikalitätsbewertung'
+        },
+        {
+          type: 'added',
+          description: 'Compliance Management für Standards wie IEC 62443, ISO 27001, FDA 21 CFR Part 11'
+        },
+        {
+          type: 'added',
+          description: 'Netzbereichs-Verwaltung mit erweiterten IT/OT-Netzwerkbereich-Funktionen'
+        },
+        {
+          type: 'added',
+          description: 'Vollständige CRUD-Operationen für alle IT/OT-Entitäten mit Server-API-Unterstützung'
+        },
+        {
+          type: 'added',
+          description: 'Erweiterte Gerätesuche mit IT/OT-Filtern (Purdue Level, Security Zone, Kritikalität)'
+        },
+        {
+          type: 'changed',
+          description: 'Standort-Übersicht mit einheitlichen Kartenhöhen und "Netzwerkbereiche" statt "Statische IPs"'
+        },
+        {
+          type: 'changed',
+          description: 'Server-API um umfassende IT/OT-Verwaltung-Endpunkte erweitert'
+        },
+        {
+          type: 'changed',
+          description: 'Datenbank-Schema um IT/OT-spezifische Tabellen erweitert'
+        },
+        {
+          type: 'fixed',
+          description: 'Verbesserte Datenlade-Funktionen mit Fallback-Mechanismen für fehlende APIs'
+        }
+      ]
+    },
+    {
       version: '1.5.0',
       date: '2025-07-11',
       type: 'minor',

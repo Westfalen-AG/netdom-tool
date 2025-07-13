@@ -2,7 +2,7 @@
 
 Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur an OnSite-Anlagen der Westfalen AG.
 
-**Version:** 1.5.0  
+**Version:** 1.6.0  
 **Letztes Update:** Juli 2025  
 **Support:** Niklas Terhorst (n.terhorst@westfalen.com oder Teams)
 
@@ -20,8 +20,24 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **Interaktive Netzwerkdiagramme**: Visuelle Darstellung der Netzwerkinfrastruktur mit Drag & Drop
 - **Changelog**: Vollständige Versionshistorie mit detaillierten Änderungen
 - **Dark/Light Mode**: Benutzerfreundliche Themes für verschiedene Arbeitsumgebungen
+- **IT/OT-Verwaltung**: Umfassende Verwaltung von IT- und OT-Infrastruktur mit industriellen Standards
 
-### Neue Features in Version 1.5.0
+### Neue Features in Version 1.6.0
+- **IT/OT-Verwaltung**: Vollständige Implementierung der IT/OT-Infrastruktur-Verwaltung
+  - **Dashboard**: Umfassende Statistiken und Übersichten für IT/OT-Geräte
+  - **Purdue Model Integration**: Klassifizierung von Geräten nach Purdue-Leveln (L0-L5)
+  - **Security Zones**: Verwaltung von Sicherheitszonen (Manufacturing, Control, DMZ, etc.)
+  - **Security Assessments**: IEC 62443 Sicherheitsbewertungen mit Risikoanalyse
+  - **Communication Matrix**: Verwaltung industrieller Protokolle (PROFINET, Modbus, OPC UA, etc.)
+  - **Change Management**: Strukturierte Änderungsverwaltung mit Genehmigungsworkflows
+  - **Asset Lifecycle Management**: Vollständige Lebenszyklus-Verwaltung von Assets
+  - **Compliance Management**: Einhaltung von Standards (IEC 62443, ISO 27001, etc.)
+- **Netzbereichs-Verwaltung**: Erweiterte Verwaltung von IT- und OT-Netzwerkbereichen
+- **Verbesserte Standort-Übersicht**: Einheitliche Kartenhöhen und erweiterte Funktionalität
+- **Vollständige CRUD-Operationen**: Erstellen, Lesen, Aktualisieren und Löschen für alle IT/OT-Entitäten
+- **Server-API-Erweiterungen**: Umfassende Backend-Unterstützung für alle neuen Features
+
+### Features aus Version 1.5.0
 - **Automatisches Hostname-System**: Intelligente Hostname-Generierung basierend auf Standort und Gerätetyp
   - Format: [StandortPrefix][GeraetetypPrefix][3-stellige-Nummer] (z.B. DELIN2CM001 für Kamera #001 in Lingen 2)
   - Automatische Nummernvergabe mit Gap-Detection (wiederverwendung gelöschter Nummern)
@@ -66,6 +82,7 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **UNVR, NEDAP Zugangskontrollgeräte**: Sicherheits- und Zugangssysteme
 - **IOLAN, Phoenix Webpanel**: Industrielle Steuerungsgeräte
 - **Telefone, Drucker und weitere Endgeräte**: Office-Infrastruktur
+- **IT/OT-Geräte**: Vollständige Unterstützung für industrielle Automatisierungsgeräte
 
 ### Kabeltypen und Verbindungen
 - **RJ45**: Cat5e, Cat6, Cat6a Ethernet-Verbindungen
@@ -139,14 +156,17 @@ westfalen-network-tool/
 │   │   ├── NetzwerkDiagramm.tsx        # Interaktive Netzwerkdiagramme
 │   │   ├── ExportBereich.tsx           # Export-Funktionalität
 │   │   ├── AnsprechpartnerVerwaltung.tsx # Kontakt-Management
+│   │   ├── ITOTVerwaltung.tsx          # IT/OT-Infrastruktur-Verwaltung
+│   │   ├── NetzbereichsVerwaltung.tsx  # Netzbereichs-Management
 │   │   └── Changelog.tsx               # Versionshistorie
 │   ├── types/                 # TypeScript Interface Definitionen
 │   │   └── index.ts
 │   ├── App.tsx               # Haupt-Anwendungskomponente
 │   └── index.tsx             # React Entry Point
 ├── public/                   # Statische Assets
-│   ├── logo_schrift_schwarz.png # Westfalen AG Logo (dunkel)
-│   ├── logo_schrift_weiss.png   # Westfalen AG Logo (hell)
+│   ├── header_schwarz.png   # Westfalen AG Header (dunkel)
+│   ├── header_weis.png      # Westfalen AG Header (hell)
+│   ├── logo.png             # Westfalen AG Logo
 │   └── index.html
 ├── package.json             # NPM Dependencies und Scripts
 └── README.md               # Diese Datei
@@ -180,27 +200,41 @@ westfalen-network-tool/
    - Standort-Details (Raum, Container, etc.)
    - Bemerkungen für zusätzliche Informationen
    - **Für Router**: Öffentliche IP-Konfiguration (statisch/dynamisch mit DynDNS-Unterstützung)
+   - **IT/OT-Klassifizierung**: Purdue Level und Security Zone
 4. **Hostname-Refresh**: Nutzen Sie den 🔄-Button für nachträgliche Hostname-Aktualisierung
 
-### 4. Switch-Stacks konfigurieren
+### 4. IT/OT-Verwaltung nutzen
+1. Navigieren Sie zu "IT/OT-Verwaltung"
+2. Nutzen Sie das Dashboard für Übersichten und Statistiken
+3. Verwalten Sie Security Assessments nach IEC 62443
+4. Dokumentieren Sie industrielle Kommunikation in der Communication Matrix
+5. Erstellen Sie Change Requests für strukturierte Änderungen
+6. Verwalten Sie Asset Lifecycle und Compliance Assessments
+
+### 5. Netzwerkbereiche verwalten
+1. Navigieren Sie zu "Netzbereichs-Verwaltung"
+2. Erstellen Sie IT- und OT-Netzwerkbereiche
+3. Konfigurieren Sie VLANs, Gateways und DHCP-Bereiche
+
+### 6. Switch-Stacks konfigurieren
 1. Navigieren Sie zu "Switch-Stack-Verwaltung"
 2. Erstellen Sie neue Switch-Stacks
 3. Fügen Sie Stack-Mitglieder hinzu
 4. Konfigurieren Sie Stack-spezifische Einstellungen
 
-### 5. Verbindungen dokumentieren
+### 7. Verbindungen dokumentieren
 1. Wählen Sie "Verbindungs-Verwaltung"
 2. Erstellen Sie Verbindungen zwischen Geräten
 3. Definieren Sie Kabeltyp, Länge und weitere Eigenschaften
 4. Ports werden automatisch als belegt markiert
 
-### 6. Netzwerkdiagramm erstellen
+### 8. Netzwerkdiagramm erstellen
 1. Navigieren Sie zu "Netzwerkdiagramm"
 2. Wählen Sie einen Standort aus
 3. Arrangieren Sie Geräte per Drag & Drop
 4. Speichern Sie Positionen für zukünftige Ansichten
 
-### 7. Export-Funktionen nutzen
+### 9. Export-Funktionen nutzen
 1. Navigieren Sie zu "Export"
 2. Wählen Sie einen Standort aus
 3. Konfigurieren Sie Export-Optionen:
@@ -225,6 +259,7 @@ westfalen-network-tool/
 - `PUT /api/geraete/:id` - Gerät aktualisieren
 - `PUT /api/geraete/:id/position` - Geräteposition aktualisieren
 - `DELETE /api/geraete/:id` - Gerät löschen
+- `GET /api/geraete/search` - Erweiterte Gerätesuche mit IT/OT-Filtern
 
 ### Gerätetypen
 - `GET /api/geraetetypen` - Aktive Gerätetypen abrufen
@@ -248,151 +283,147 @@ westfalen-network-tool/
 ### Switch-Stacks
 - `GET /api/standorte/:standortId/stacks` - Switch-Stacks eines Standorts
 - `POST /api/standorte/:standortId/stacks` - Neuen Switch-Stack erstellen
-- `PUT /api/stacks/:id` - Switch-Stack aktualisieren
-- `DELETE /api/stacks/:id` - Switch-Stack löschen
+- `PUT /api/stacks/:stackId` - Switch-Stack aktualisieren
+- `DELETE /api/stacks/:stackId` - Switch-Stack löschen
 
-### Hilfsdaten
-- `GET /api/geraetetypen` - Verfügbare Gerätetypen
-- `GET /api/kabeltypen` - Verfügbare Kabeltypen
+### Netzbereichs-Verwaltung
+- `GET /api/netzbereich-verwaltung` - Netzbereichs-Liste abrufen
+- `POST /api/netzbereich-verwaltung` - Neuen Netzbereich erstellen
+- `PUT /api/netzbereich-verwaltung/:id` - Netzbereich aktualisieren
+- `DELETE /api/netzbereich-verwaltung/:id` - Netzbereich löschen
 
-## 🗄️ Datenbank
+### IT/OT-Verwaltung
+- `GET /api/standorte/:standortId/itot-dashboard` - IT/OT Dashboard-Daten
+- `GET /api/standorte/:standortId/security-assessments` - Security Assessments
+- `POST /api/geraete/:geraetId/security-assessments` - Security Assessment erstellen
+- `PUT /api/security-assessments/:id` - Security Assessment aktualisieren
+- `DELETE /api/security-assessments/:id` - Security Assessment löschen
+- `GET /api/standorte/:standortId/communication-matrix` - Communication Matrix
+- `POST /api/standorte/:standortId/communication-matrix` - Communication Matrix Eintrag erstellen
+- `PUT /api/communication-matrix/:id` - Communication Matrix aktualisieren
+- `DELETE /api/communication-matrix/:id` - Communication Matrix löschen
+- `GET /api/standorte/:standortId/change-requests` - Change Requests
+- `POST /api/standorte/:standortId/change-requests` - Change Request erstellen
+- `PUT /api/change-requests/:id` - Change Request aktualisieren
+- `DELETE /api/change-requests/:id` - Change Request löschen
+- `GET /api/standorte/:standortId/asset-lifecycle` - Asset Lifecycle
+- `POST /api/geraete/:geraetId/asset-lifecycle` - Asset Lifecycle erstellen
+- `PUT /api/asset-lifecycle/:id` - Asset Lifecycle aktualisieren
+- `DELETE /api/asset-lifecycle/:id` - Asset Lifecycle löschen
+- `GET /api/compliance-requirements` - Compliance Requirements
+- `GET /api/standorte/:standortId/compliance-assessments` - Compliance Assessments
+- `POST /api/geraete/:geraetId/compliance-assessments` - Compliance Assessment erstellen
+- `PUT /api/compliance-assessments/:id` - Compliance Assessment aktualisieren
+- `DELETE /api/compliance-assessments/:id` - Compliance Assessment löschen
 
-Das Tool verwendet SQLite als lokale Datenbank. Die Datenbankdatei wird automatisch unter `server/westfalen_network.db` erstellt.
+### Ansprechpartner
+- `GET /api/ansprechpartner` - Alle Ansprechpartner abrufen
+- `POST /api/ansprechpartner` - Neuen Ansprechpartner erstellen
+- `PUT /api/ansprechpartner/:id` - Ansprechpartner aktualisieren
+- `DELETE /api/ansprechpartner/:id` - Ansprechpartner löschen
 
-### Haupttabellen
-- `standorte` - Grundlegende Standortinformationen
-- `uplinks` - Uplink-Verbindungen pro Standort
-- `geraete` - Alle Netzwerkgeräte mit Standort-Details
-- `port_belegungen` - Port-Status für jedes Gerät
-- `verbindungen` - Kabelverbindungen zwischen Geräten
-- `stacks` - Switch-Stack-Konfigurationen
-- `stack_mitglieder` - Zuordnung von Geräten zu Stacks
-- `netzwerk_diagramme` - Gespeicherte Diagramm-Layouts
+## 🔒 Sicherheit und Compliance
 
-### Automatische Migrationen
-- Die Datenbank wird automatisch bei Server-Start aktualisiert
-- Neue Felder werden ohne Datenverlust hinzugefügt
-- Backups werden vor größeren Änderungen erstellt
+### Unterstützte Standards
+- **IEC 62443**: Industrielle Cybersicherheit
+- **ISO 27001**: Informationssicherheits-Management
+- **FDA 21 CFR Part 11**: Pharmazeutische Compliance
+- **NIST Cybersecurity Framework**: Cybersicherheits-Rahmenwerk
 
-## 🔒 Sicherheit und Backup
+### Purdue Model Integration
+- **Level 0**: Field Level (Sensoren, Aktoren)
+- **Level 1**: Control Level (PLC, SPS)
+- **Level 2**: Supervisory Level (SCADA, HMI)
+- **Level 3**: Manufacturing Operations (MES)
+- **Level 4**: Business Planning (ERP)
+- **Level 5**: Enterprise Level
 
-### Backup-Empfehlungen
-- **Regelmäßige Sicherung** der SQLite-Datenbankdatei (`westfalen_network.db`)
-- **Export wichtiger Konfigurationen** als PDF für Offline-Zugriff
-- **Versionskontrolle** für wichtige Konfigurationsänderungen
+### Security Zones
+- **Manufacturing Zone (L0-L2)**: Produktionsumgebung
+- **Control Zone**: Steuerungsebene
+- **DMZ (Demilitarized Zone)**: Sicherheitszone
+- **Corporate Network (L3-L5)**: Unternehmensebene
+- **Safety Zone (SIS)**: Sicherheitsgerichtete Systeme
+- **Remote Access Zone**: Fernzugriff
 
-### Zugriffskontrolle
-- Aktuell keine Benutzerauthentifizierung implementiert
-- Für Produktionsumgebung sollte Authentifizierung hinzugefügt werden
-- Netzwerkzugriff über Firewall-Regeln beschränken
+## 📊 Industrielle Protokolle
 
-## 🚦 Entwicklung und Erweiterung
+### Unterstützte Protokolle
+- **PROFINET**: Ethernet-basierte Industrieautomatisierung
+- **PROFIBUS**: Feldbus-Standard
+- **EtherNet/IP**: Industrial Ethernet Protokoll
+- **Modbus TCP/RTU**: Industrielle Kommunikation
+- **OPC UA/DA**: Offene Plattform-Kommunikation
+- **BACnet**: Gebäudeautomatisierung
+- **HART**: Highway Addressable Remote Transducer
+- **Foundation Fieldbus**: Prozessautomatisierung
+- **CAN Bus**: Controller Area Network
+- **DeviceNet**: Gerätenetzwerk
+- **ControlNet**: Echtzeitsteuerung
+- **AS-Interface**: Aktor-Sensor-Interface
+- **IO-Link**: Punkt-zu-Punkt-Kommunikation
 
-### Development-Scripts
-```bash
-# Backend und Frontend gleichzeitig starten
-npm run dev
+## 🔄 Change Management
 
-# Backend mit Auto-Reload
-npm run server:dev
+### Change-Typen
+- **Standard**: Vordefinierte, risikoarme Änderungen
+- **Normal**: Reguläre Änderungen mit Genehmigungsverfahren
+- **Emergency**: Notfalländerungen mit beschleunigtem Verfahren
 
-# Frontend-Entwicklungsserver
-npm start
+### Workflow
+1. **Antragstellung**: Detaillierte Beschreibung der Änderung
+2. **Risikoanalyse**: Bewertung der Auswirkungen
+3. **Genehmigung**: Mehrstufiges Genehmigungsverfahren
+4. **Implementierung**: Durchführung nach Plan
+5. **Verifikation**: Überprüfung der Umsetzung
+6. **Dokumentation**: Vollständige Nachverfolgung
 
-# Alle Dependencies installieren
-npm run install:all
-```
+## 📈 Asset Lifecycle Management
 
-### Code-Struktur
-- **Backend**: Express.js mit SQLite und automatischen Migrationen
-- **Frontend**: React mit TypeScript und Material-UI
-- **Diagramme**: ReactFlow für interaktive Netzwerkdiagramme
-- **Export**: html2canvas und jsPDF für professionelle Exports
-- **State Management**: React Hooks (useState, useEffect)
+### Lifecycle-Phasen
+- **Planung**: Bedarfsanalyse und Spezifikation
+- **Beschaffung**: Auswahl und Einkauf
+- **Installation**: Inbetriebnahme und Konfiguration
+- **Betrieb**: Überwachung und Wartung
+- **Optimierung**: Performance-Verbesserung
+- **Austausch**: End-of-Life-Management
 
-### Mögliche Erweiterungen
-- **Benutzerauthentifizierung** und Rechteverwaltung
-- **Import/Export** von CSV-Dateien
-- **Automatische Netzwerk-Discovery** über SNMP
-- **Integration** mit Monitoring-Tools
-- **Mobile App** für vor-Ort Wartung
-- **Barcode/QR-Code Scanner** für Geräte-IDs
-- **Benachrichtigungen** bei Konfigurationsänderungen
+### Wartungsmanagement
+- **Präventive Wartung**: Geplante Wartungsintervalle
+- **Korrektive Wartung**: Reaktive Fehlerbehebung
+- **Zustandsbasierte Wartung**: Überwachung kritischer Parameter
+- **Ersatzteilmanagement**: Verfügbarkeit und Beschaffung
 
-## 📋 Troubleshooting
+## 🎓 Schulung und Support
 
-### Häufige Probleme
+### Dokumentation
+- Umfassende Benutzerhandbücher
+- Video-Tutorials für alle Funktionen
+- Best-Practice-Leitfäden
+- FAQ und Troubleshooting
 
-**Port bereits belegt**
-```
-Error: listen EADDRINUSE: address already in use :::3001
-```
-→ Backend-Server läuft bereits oder Port wird von anderem Prozess verwendet
-
-**Datenbankfehler**
-```
-Error: SQLITE_ERROR: database is locked
-```
-→ Datenbankdatei wird von anderem Prozess verwendet oder ist beschädigt
-
-**Frontend startet nicht**
-```
-Error: Cannot find module '@types/react'
-```
-→ Dependencies fehlen, führen Sie `npm install` aus
-
-**Export-Funktionen funktionieren nicht**
-```
-Error: html2canvas is not defined
-```
-→ Browser-Kompatibilität prüfen oder Dependencies neu installieren
-
-### Logs und Debugging
-- **Backend-Logs**: Werden in der Konsole ausgegeben
-- **Frontend-Logs**: Browser-Entwicklertools (F12)
-- **Datenbankabfragen**: Werden bei Fehlern in der Konsole angezeigt
-
-## 📞 Support und Kontakt
-
-Bei Fragen, Problemen oder Anregungen wenden Sie sich bitte an:
-
-**Niklas Terhorst**
+### Support-Kanäle
 - **E-Mail**: n.terhorst@westfalen.com
-- **Teams**: Niklas Terhorst (Westfalen AG)
-- **Themen**: Technische Fragen, Fehlermeldungen, Feature-Requests, Schulungen
+- **Microsoft Teams**: Direkter Kontakt
+- **Interne Schulungen**: Auf Anfrage verfügbar
+- **Remote-Support**: Bildschirmfreigabe möglich
 
-### Hilfreiche Informationen für Support-Anfragen
-- Aktuelle Tool-Version (siehe Footer)
-- Betriebssystem und Browser-Version
-- Fehlermeldungen (Screenshots helfen)
-- Beschreibung der durchgeführten Schritte
+## 🚀 Roadmap
 
-## 📝 Changelog
+### Geplante Features
+- **Mobile App**: iOS/Android Companion App
+- **API-Integration**: Anbindung an bestehende Systeme
+- **Erweiterte Berichte**: Automatisierte Compliance-Reports
+- **Backup/Restore**: Datensicherung und -wiederherstellung
+- **Multi-Tenant**: Unterstützung mehrerer Organisationen
 
-Eine detaillierte Übersicht aller Änderungen finden Sie in der integrierten Changelog-Seite der Anwendung oder unter dem Menüpunkt "Changelog".
-
-### Version 1.4.0 (Januar 2025)
-- Router-öffentliche IP-Verwaltung mit vollständiger Konfiguration
-- Bemerkungsfelder für alle Gerätetypen
-- WAN/LAN IP-Unterscheidung in allen Übersichten
-- Farbkodierte Anzeige für WAN-IP-Informationen
-- DynDNS-Unterstützung für dynamische Router-IPs
-- Statische öffentliche IP-Konfiguration für Router
-
-### Version 1.3.0 (Januar 2025)
-- Kabelfarben-basierte Port-Visualisierung in Rack-Diagrammen
-- Intelligente Kontrastberechnung für optimale Lesbarkeit
-- Verbesserte Navigation mit klickbaren Elementen
-- Westfalen AG Branding in Export-Funktionen
-
-### Version 1.2.0 (Juli 2025)
-- Export-Funktion für PNG und PDF mit vollständiger Standort-Dokumentation
-- Rack-Visualisierung im Export-Bereich
-- Changelog-Seite und Versionierung
-- Standort-Details-Feld für Geräte (Raum, Container, etc.)
-- Footer-Design optimiert
-- UI-Verbesserungen für bessere Benutzerfreundlichkeit
+### Kontinuierliche Verbesserungen
+- Performance-Optimierungen
+- Benutzerfreundlichkeits-Verbesserungen
+- Erweiterte Sicherheitsfeatures
+- Neue Gerätetyp-Unterstützung
 
 ---
 
-**© 2025 Westfalen AG - Network Documentation Tool** 
+**Entwickelt mit ❤️ für die Westfalen AG**  
+*Vereinfachung der Netzwerk-Dokumentation für OnSite-Anlagen* 

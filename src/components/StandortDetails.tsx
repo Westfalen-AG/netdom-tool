@@ -44,6 +44,21 @@ import {
   Memory as MemoryIcon,
   Hub as HubIcon,
   Dns as ModemIcon,
+  Warning as WarningIcon,
+  // OT-Geräte Icons
+  PrecisionManufacturing as VerdichterIcon,
+  DeveloperBoard as IndustrialSwitchIcon,
+  LocalGasStation as H2VersorgerIcon,
+  CompareArrows as ITOTRouterIcon,
+  Science as GasanalysatorIcon,
+  Speed as DrucksensorIcon,
+  Thermostat as TemperatursensorIcon,
+  WaterDrop as DurchflussmesserIcon,
+  ToggleOn as VentilstationIcon,
+  Warning as NotabschaltungIcon,
+  Tune as FrequenzumrichterIcon,
+  ElectricalServices as TransformatorIcon,
+  BatteryChargingFull as USVIcon,
 } from '@mui/icons-material';
 import { StandortMitStatistiken, Geraet, GeraeteTyp, Verbindung, PortBelegung } from '../types';
 import RackVisualisierung from './RackVisualisierung';
@@ -204,6 +219,7 @@ const StandortDetails: React.FC = () => {
   // Gewünschte Reihenfolge der Gerätetypen
   const getGeraetetypReihenfolge = (): GeraeteTyp[] => {
     const gewuenschteReihenfolge: GeraeteTyp[] = [
+      // IT-Geräte
       'Router',      // Modems zuerst
       'SD-WAN Gateway',
       'Firewall',
@@ -219,6 +235,21 @@ const StandortDetails: React.FC = () => {
       'Serial Server',
       'HMI',
       'Sensor',
+      // OT-Geräte
+      'IT/OT-Router',
+      'SPS',
+      'Industrial Switch',
+      'Verdichter',
+      'H2-Versorger',
+      'Gasanalysator',
+      'Drucksensor',
+      'Temperatursensor',
+      'Durchflussmesser',
+      'Ventilstation',
+      'Frequenzumrichter',
+      'Transformator',
+      'USV',
+      'Notabschaltung',
       'Sonstiges'
     ];
     
@@ -229,6 +260,7 @@ const StandortDetails: React.FC = () => {
   // Gerät-Icon basierend auf Typ
   const getGeraetIcon = (geraetetyp: GeraeteTyp) => {
     switch (geraetetyp) {
+      // IT-Geräte
       case 'Router':
         return <RouterIcon color="primary" />;
       case 'Switch':
@@ -256,6 +288,35 @@ const StandortDetails: React.FC = () => {
       case 'Serial Server':
       case 'HMI':
         return <MemoryIcon color="primary" />;
+      // OT-Geräte
+      case 'Verdichter':
+        return <VerdichterIcon color="primary" />;
+      case 'SPS':
+        return <MemoryIcon color="primary" />;
+      case 'Industrial Switch':
+        return <IndustrialSwitchIcon color="primary" />;
+      case 'H2-Versorger':
+        return <H2VersorgerIcon color="primary" />;
+      case 'IT/OT-Router':
+        return <ITOTRouterIcon color="primary" />;
+      case 'Gasanalysator':
+        return <GasanalysatorIcon color="primary" />;
+      case 'Drucksensor':
+        return <DrucksensorIcon color="primary" />;
+      case 'Temperatursensor':
+        return <TemperatursensorIcon color="primary" />;
+      case 'Durchflussmesser':
+        return <DurchflussmesserIcon color="primary" />;
+      case 'Ventilstation':
+        return <VentilstationIcon color="primary" />;
+      case 'Notabschaltung':
+        return <NotabschaltungIcon color="error" />;
+      case 'Frequenzumrichter':
+        return <FrequenzumrichterIcon color="primary" />;
+      case 'Transformator':
+        return <TransformatorIcon color="primary" />;
+      case 'USV':
+        return <USVIcon color="primary" />;
       default:
         return <ComputerIcon color="action" />;
     }
@@ -264,6 +325,7 @@ const StandortDetails: React.FC = () => {
   // Gerät-Farbe basierend auf Typ
   const getGeraetColor = (geraetetyp: GeraeteTyp): 'primary' | 'secondary' | 'success' | 'warning' | 'error' => {
     switch (geraetetyp) {
+      // IT-Geräte
       case 'Router':
         return 'secondary';
       case 'Switch':
@@ -291,6 +353,35 @@ const StandortDetails: React.FC = () => {
       case 'Serial Server':
       case 'HMI':
         return 'secondary';
+      // OT-Geräte
+      case 'Verdichter':
+        return 'warning';
+      case 'SPS':
+        return 'primary';
+      case 'Industrial Switch':
+        return 'success';
+      case 'H2-Versorger':
+        return 'success';
+      case 'IT/OT-Router':
+        return 'warning';
+      case 'Gasanalysator':
+        return 'secondary';
+      case 'Drucksensor':
+        return 'primary';
+      case 'Temperatursensor':
+        return 'error';
+      case 'Durchflussmesser':
+        return 'primary';
+      case 'Ventilstation':
+        return 'success';
+      case 'Notabschaltung':
+        return 'error';
+      case 'Frequenzumrichter':
+        return 'secondary';
+      case 'Transformator':
+        return 'primary';
+      case 'USV':
+        return 'success';
       default:
         return 'primary';
     }
@@ -374,8 +465,51 @@ const StandortDetails: React.FC = () => {
 
       {/* Standort-Informationen */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
+        {/* Netzwerk-Konfiguration */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              <RouterIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+              Netzwerk-Konfiguration
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            {standort.standardNetzbereich && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="primary">
+                  Standard-Netzbereich
+                </Typography>
+                <Chip 
+                  label={standort.standardNetzbereich} 
+                  color="primary" 
+                  variant="outlined" 
+                  size="small"
+                  sx={{ fontFamily: 'monospace', mt: 0.5 }}
+                />
+              </Box>
+            )}
+            
+            {standort.hostnamePrefix && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="primary">
+                  Hostname-Präfix
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                  {standort.hostnamePrefix}
+                </Typography>
+              </Box>
+            )}
+            
+            {!standort.standardNetzbereich && !standort.hostnamePrefix && (
+              <Typography variant="body2" color="text.secondary">
+                Keine Netzwerk-Konfiguration vorhanden
+              </Typography>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Ansprechpartner */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               <PeopleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -458,7 +592,7 @@ const StandortDetails: React.FC = () => {
         </Grid>
 
         {/* Uplinks */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper elevation={1} sx={{ p: 2, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
               <CableIcon sx={{ mr: 1, verticalAlign: 'middle' }} />

@@ -52,6 +52,7 @@ const StandortVerwaltung: React.FC = () => {
     ansprechpartnerITId: '',
     ansprechpartnerVorOrtId: '',
     hostnamePrefix: '',
+    standardNetzbereich: '',
   });
 
   // Alle Standorte laden
@@ -152,6 +153,7 @@ const StandortVerwaltung: React.FC = () => {
       ansprechpartnerITId: '',
       ansprechpartnerVorOrtId: '',
       hostnamePrefix: '',
+      standardNetzbereich: '',
     });
   };
 
@@ -163,6 +165,7 @@ const StandortVerwaltung: React.FC = () => {
       ansprechpartnerITId: (standort.ansprechpartnerIT as any)?.id || '',
       ansprechpartnerVorOrtId: (standort.ansprechpartnerVorOrt as any)?.id || '',
       hostnamePrefix: standort.hostnamePrefix || '',
+      standardNetzbereich: standort.standardNetzbereich || '',
     });
     setBearbeitenDialogOpen(true);
   };
@@ -253,6 +256,23 @@ const StandortVerwaltung: React.FC = () => {
                     </Typography>
                     <Typography variant="body1" sx={{ mb: 2 }}>
                       {standort.hostnamePrefix}
+                    </Typography>
+                  </>
+                )}
+
+                {standort.standardNetzbereich && (
+                  <>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      <strong>Standard-Netzbereich:</strong>
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      <Chip 
+                        label={standort.standardNetzbereich} 
+                        color="primary" 
+                        variant="outlined" 
+                        size="small"
+                        sx={{ fontFamily: 'monospace' }}
+                      />
                     </Typography>
                   </>
                 )}
@@ -379,6 +399,17 @@ const StandortVerwaltung: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} sm={6}>
+              <TextField
+                label="Standard-Netzbereich"
+                fullWidth
+                value={neuStandort.standardNetzbereich}
+                onChange={(e) => setNeuStandort({ ...neuStandort, standardNetzbereich: e.target.value })}
+                placeholder="z.B. 10.202.0.0/16"
+                helperText="Standard /16 IT-Netzbereich für diesen Standort"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Ansprechpartner IT</InputLabel>
                 <Select
@@ -469,6 +500,17 @@ const StandortVerwaltung: React.FC = () => {
                 onChange={(e) => setNeuStandort({ ...neuStandort, hostnamePrefix: e.target.value })}
                 placeholder="z.B. DELIN2, MELLE1"
                 helperText="Präfix für automatische Hostname-Generierung"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Standard-Netzbereich"
+                fullWidth
+                value={neuStandort.standardNetzbereich}
+                onChange={(e) => setNeuStandort({ ...neuStandort, standardNetzbereich: e.target.value })}
+                placeholder="z.B. 10.202.0.0/16"
+                helperText="Standard /16 IT-Netzbereich für diesen Standort"
               />
             </Grid>
 

@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext, useEffect } from 'react';
+import React, { useState, createContext, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -12,8 +12,6 @@ import {
   Box,
   IconButton,
   Container,
-  Switch,
-  FormControlLabel,
   Tooltip,
   FormControl,
   InputLabel,
@@ -37,6 +35,8 @@ import {
   History as HistoryIcon,
   Category as CategoryIcon,
   Storage as RackIcon,
+  Lan as LanIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 
 // Komponenten importieren
@@ -52,6 +52,8 @@ import RackAnsicht from './components/RackAnsicht';
 import ExportBereich from './components/ExportBereich';
 import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
+import NetzbereichsVerwaltung from './components/NetzbereichsVerwaltung';
+import ITOTVerwaltung from './components/ITOTVerwaltung';
 
 // Types importieren
 import { Standort } from './types';
@@ -196,7 +198,7 @@ const App: React.FC = () => {
   const location = useLocation();
 
   // Standorte laden
-  const ladeStandorte = async () => {
+  const ladeStandorte = useCallback(async () => {
     try {
       const response = await fetch('/api/standorte');
       const data = await response.json();
@@ -210,12 +212,12 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Fehler beim Laden der Standorte:', err);
     }
-  };
+  }, [selectedStandort]);
 
   // Standorte beim App-Start laden
   useEffect(() => {
     ladeStandorte();
-  }, []);
+  }, [ladeStandorte]);
 
   // Ausgewählten Standort in localStorage speichern
   useEffect(() => {
@@ -243,9 +245,11 @@ const App: React.FC = () => {
   const menuItems = [
     { text: 'Übersicht', icon: <HomeIcon />, path: '/' },
     { text: 'Standorte', icon: <LocationIcon />, path: '/standorte' },
+    ...(selectedStandort ? [{ text: 'IT/OT-Verwaltung', icon: <SecurityIcon />, path: `/standorte/${selectedStandort}/it-ot-verwaltung` }] : []),
     { text: 'Ansprechpartner', icon: <PeopleIcon />, path: '/ansprechpartner' },
     { text: 'Geräte', icon: <RouterIcon />, path: '/geraete' },
     { text: 'Gerätetypen', icon: <CategoryIcon />, path: '/geraetetypen' },
+    { text: 'Netzwerkbereiche', icon: <LanIcon />, path: '/netzbereichsverwaltung' },
     { text: 'Verbindungen', icon: <CableIcon />, path: '/verbindungen' },
     { text: 'Switch-Stacks', icon: <ModemIcon />, path: '/stacks' },
     { text: 'Rack-Ansicht', icon: <RackIcon />, path: '/racks' },
@@ -304,7 +308,7 @@ const App: React.FC = () => {
                   onClick={() => navigate('/standorte')}
                 >
                   <img
-                    src={darkMode ? "/logo_schrift_weiss.png" : "/logo_schrift_weiss.png"}
+                    src={darkMode ? "/header_weis.png" : "/header_weis.png"}
                     alt="Westfalen AG"
                     style={{ height: '32px', width: 'auto' }}
                   />
@@ -478,6 +482,8 @@ const App: React.FC = () => {
                   <Route path="/ansprechpartner" element={<AnsprechpartnerVerwaltung />} />
                   <Route path="/geraete" element={<GeraeteVerwaltung />} />
                   <Route path="/geraetetypen" element={<GeraetetypVerwaltung />} />
+                  <Route path="/netzbereichsverwaltung" element={<NetzbereichsVerwaltung />} />
+                  <Route path="/standorte/:standortId/it-ot-verwaltung" element={<ITOTVerwaltung />} />
                   <Route path="/verbindungen" element={<VerbindungsVerwaltung />} />
                   <Route path="/stacks" element={<SwitchStackVerwaltung />} />
                   <Route path="/racks" element={<RackAnsicht />} />

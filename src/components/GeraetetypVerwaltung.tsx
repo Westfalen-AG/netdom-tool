@@ -58,6 +58,7 @@ const GeraetetypVerwaltung: React.FC = () => {
     icon: 'device_unknown',
     farbe: '#757575',
     hostnamePrefix: '',
+    kategorie: 'IT',
     aktiv: true
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
@@ -117,6 +118,7 @@ const GeraetetypVerwaltung: React.FC = () => {
         icon: 'device_unknown',
         farbe: '#757575',
         hostnamePrefix: '',
+        kategorie: 'IT',
         aktiv: true
       });
       setIsBearbeiten(false);
@@ -132,6 +134,7 @@ const GeraetetypVerwaltung: React.FC = () => {
       icon: 'device_unknown',
       farbe: '#757575',
       hostnamePrefix: '',
+      kategorie: 'IT',
       aktiv: true
     });
   };
@@ -234,6 +237,7 @@ const GeraetetypVerwaltung: React.FC = () => {
             <TableRow>
               <TableCell>Icon</TableCell>
               <TableCell>Name</TableCell>
+              <TableCell>Kategorie</TableCell>
               <TableCell>Hostname-Präfix</TableCell>
               <TableCell>Beschreibung</TableCell>
               <TableCell>Status</TableCell>
@@ -259,6 +263,17 @@ const GeraetetypVerwaltung: React.FC = () => {
                   <Typography variant="body1" fontWeight="medium">
                     {geraetetyp.name}
                   </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={geraetetyp.kategorie || 'IT'}
+                    color={
+                      geraetetyp.kategorie === 'OT' ? 'secondary' : 
+                      geraetetyp.kategorie === 'Hybrid' ? 'warning' : 
+                      'primary'
+                    }
+                    size="small"
+                  />
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight="mono" color="primary">
@@ -336,6 +351,21 @@ const GeraetetypVerwaltung: React.FC = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Kategorie"
+                fullWidth
+                required
+                value={currentGeraetetyp.kategorie || 'IT'}
+                onChange={(e) => setCurrentGeraetetyp({ ...currentGeraetetyp, kategorie: e.target.value as 'IT' | 'OT' | 'Hybrid' })}
+                helperText="IT-Gerät, OT-Gerät oder Hybrid"
+              >
+                <MenuItem value="IT">IT-Gerät</MenuItem>
+                <MenuItem value="OT">OT-Gerät</MenuItem>
+                <MenuItem value="Hybrid">Hybrid</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
               <TextField
                 label="Beschreibung"
                 fullWidth

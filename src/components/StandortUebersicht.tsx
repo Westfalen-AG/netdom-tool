@@ -29,6 +29,7 @@ import {
   Business as BusinessIcon,
   Category as CategoryIcon,
   Language as LanguageIcon,
+  Lan as LanIcon,
 } from '@mui/icons-material';
 import { StandortMitStatistiken, Geraet } from '../types';
 import { StandortContext } from '../App';
@@ -40,6 +41,7 @@ const StandortUebersicht: React.FC = () => {
   const [standortDetails, setStandortDetails] = useState<StandortMitStatistiken | null>(null);
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [verbindungen, setVerbindungen] = useState<any[]>([]);
+  const [netzbereichs, setNetzbereichs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,14 +51,16 @@ const StandortUebersicht: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Geräte und Verbindungen parallel laden
-      const [geraeteResponse, verbindungenResponse] = await Promise.all([
+      // Geräte, Verbindungen und Netzbereichs parallel laden
+      const [geraeteResponse, verbindungenResponse, netzbereichsResponse] = await Promise.all([
         fetch(`/api/standorte/${standortId}/geraete`),
-        fetch(`/api/standorte/${standortId}/verbindungen`)
+        fetch(`/api/standorte/${standortId}/verbindungen`),
+        fetch(`/api/netzbereich-verwaltung?standort_id=${standortId}`)
       ]);
 
       const geraeteData = await geraeteResponse.json();
       const verbindungenData = await verbindungenResponse.json();
+      const netzbereichsData = await netzbereichsResponse.json();
 
       if (geraeteData.success) {
         setGeraete(geraeteData.data || []);
@@ -70,6 +74,13 @@ const StandortUebersicht: React.FC = () => {
       } else {
         console.warn('Fehler beim Laden der Verbindungen:', verbindungenData.error);
         setVerbindungen([]);
+      }
+
+      if (netzbereichsData.success) {
+        setNetzbereichs(netzbereichsData.data || []);
+      } else {
+        console.warn('Fehler beim Laden der Netzbereichs:', netzbereichsData.error);
+        setNetzbereichs([]);
       }
 
       // Verwende die Standortdaten aus dem Context statt eines separaten API-Calls
@@ -197,8 +208,8 @@ const StandortUebersicht: React.FC = () => {
         <Grid container spacing={3} sx={{ mb: 3 }}>
           {/* Grundinformationen */}
           <Grid item xs={12} md={6}>
-            <Card elevation={3}>
-              <CardContent>
+            <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
                                  <Box display="flex" alignItems="center" mb={2}>
                    <BusinessIcon color="primary" sx={{ mr: 1 }} />
                    <Typography variant="h6">Standort-Informationen</Typography>
@@ -284,8 +295,8 @@ const StandortUebersicht: React.FC = () => {
 
           {/* Verfügbare Uplinks */}
           <Grid item xs={12} md={6}>
-            <Card elevation={3}>
-              <CardContent>
+            <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
                 <Box display="flex" alignItems="center" mb={2}>
                   <CableIcon color="primary" sx={{ mr: 1 }} />
                   <Typography variant="h6">Verfügbare Uplinks</Typography>
@@ -385,6 +396,9 @@ const StandortUebersicht: React.FC = () => {
                     Keine Uplinks konfiguriert
                   </Typography>
                 )}
+                
+                {/* Leerer Bereich für einheitliche Höhe */}
+                <Box sx={{ flexGrow: 1 }} />
               </CardContent>
             </Card>
           </Grid>
@@ -394,8 +408,8 @@ const StandortUebersicht: React.FC = () => {
       {/* Statistiken */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={3}>
-            <CardContent sx={{ textAlign: 'center' }}>
+          <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ textAlign: 'center', flexGrow: 1 }}>
               <RouterIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
               <Typography variant="h4" component="div" color="primary.main">
                 {geraete.length}
@@ -413,8 +427,8 @@ const StandortUebersicht: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={3}>
-            <CardContent sx={{ textAlign: 'center' }}>
+          <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ textAlign: 'center', flexGrow: 1 }}>
               <CableIcon sx={{ fontSize: 48, color: 'secondary.main', mb: 1 }} />
               <Typography variant="h4" component="div" color="secondary.main">
                 {verbindungen.length}
@@ -432,8 +446,8 @@ const StandortUebersicht: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={3}>
-            <CardContent sx={{ textAlign: 'center' }}>
+          <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ textAlign: 'center', flexGrow: 1 }}>
               <CategoryIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
               <Typography variant="h4" component="div" color="success.main">
                 {Object.keys(geraeteNachTyp).length}
@@ -442,20 +456,30 @@ const StandortUebersicht: React.FC = () => {
                 Gerätetypen
               </Typography>
             </CardContent>
+            <CardActions>
+              <Button size="small" onClick={() => navigate('/geraetetypen')} fullWidth>
+                Verwalten
+              </Button>
+            </CardActions>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={3}>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <LanguageIcon sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
+          <Card elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ textAlign: 'center', flexGrow: 1 }}>
+              <LanIcon sx={{ fontSize: 48, color: 'info.main', mb: 1 }} />
               <Typography variant="h4" component="div" color="info.main">
-                {geraete.filter(g => g.ipKonfiguration?.typ === 'statisch').length}
+                {netzbereichs.length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Statische IPs
+                Netzwerkbereiche
               </Typography>
             </CardContent>
+            <CardActions>
+              <Button size="small" onClick={() => navigate('/netzbereichsverwaltung')} fullWidth>
+                Verwalten
+              </Button>
+            </CardActions>
           </Card>
         </Grid>
       </Grid>

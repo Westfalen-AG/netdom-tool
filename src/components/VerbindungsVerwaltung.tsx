@@ -275,6 +275,17 @@ const VerbindungsVerwaltung: React.FC = () => {
       'RJ45 Cat6a': '#2196f3',
       'Fibre Singlemode': '#ff9800',
       'Fibre Multimode': '#ff9800',
+      
+      // Profinet-Kabel (grüne Töne für Industrial Ethernet)
+      'Profinet Standard': '#2e7d32',
+      'Profinet Fast Connect': '#388e3c',
+      'Profinet Robust': '#43a047',
+      'Profinet Marine': '#4caf50',
+      // M12/M8 Industriesteckverbindungen (blaue Töne)
+      'M12 4-polig': '#1976d2',
+      'M12 8-polig': '#1565c0',
+      'M8 3-polig': '#0d47a1',
+      'M8 4-polig': '#0277bd',
     };
     return farbMap[kabeltyp] || '#607d8b';
   };
