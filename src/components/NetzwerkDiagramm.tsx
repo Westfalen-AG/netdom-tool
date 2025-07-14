@@ -45,7 +45,7 @@ import {
   AutorenewOutlined as AutoRefreshIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
-import { Geraet, Verbindung, GeraeteTyp, Netzbereich } from '../types';
+import { Geraet, Verbindung, GeraeteTyp, Netzbereich, CommunicationMatrix, IndustrialProtocol } from '../types';
 import { ThemeContext, StandortContext } from '../App';
 
 // Gerätetype zu Farbe Mapping
@@ -455,6 +455,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [verbindungen, setVerbindungen] = useState<any[]>([]);
+  const [communicationMatrix, setCommunicationMatrix] = useState<CommunicationMatrix[]>([]);
   const [netzbereichListe, setNetzbereichListe] = useState<Netzbereich[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -467,16 +468,17 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   const [geraetetypFilter, setGeraetetypFilter] = useState<string>('alle');
   const [netzbereichFilter, setNetzbereichFilter] = useState<string>('alle');
   const [kategorieFilter, setKategorieFilter] = useState<string>('alle');
+  const [verbindungsTyp, setVerbindungsTyp] = useState<'physical' | 'logical' | 'both'>('physical');
   
   const theme = useTheme();
   const { darkMode } = useContext(ThemeContext);
 
   // Diagramm neu generieren wenn Filter sich ändern
   React.useEffect(() => {
-    if (geraete.length > 0 && verbindungen.length > 0) {
-      generiereNetzwerkDiagramm(geraete, verbindungen);
+    if (geraete.length > 0 && (verbindungen.length > 0 || communicationMatrix.length > 0)) {
+      generiereNetzwerkDiagramm(geraete, verbindungen, communicationMatrix);
     }
-  }, [geraetetypFilter, netzbereichFilter, kategorieFilter, geraete, verbindungen]);
+  }, [geraetetypFilter, netzbereichFilter, kategorieFilter, verbindungsTyp, geraete, verbindungen, communicationMatrix]);
 
   // Diagrammdaten laden (verwendet vollständige Geräte-API)
   const ladeDiagrammDaten = async (standortId: string) => {
@@ -484,24 +486,28 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       setLoading(true);
       setError(null);
       
-      // Lade vollständige Gerätedaten und Verbindungen parallel
-      const [geraeteResponse, verbindungenResponse] = await Promise.all([
+      // Lade vollständige Gerätedaten, Verbindungen und Communication Matrix parallel
+      const [geraeteResponse, verbindungenResponse, communicationResponse] = await Promise.all([
         fetch(`/api/standorte/${standortId}/geraete`),
-        fetch(`/api/standorte/${standortId}/verbindungen`)
+        fetch(`/api/standorte/${standortId}/verbindungen`),
+        fetch(`/api/standorte/${standortId}/communication-matrix`)
       ]);
       
       const geraeteData = await geraeteResponse.json();
       const verbindungenData = await verbindungenResponse.json();
+      const communicationData = await communicationResponse.json();
       
       if (geraeteData.success && verbindungenData.success) {
         console.log('Diagrammdaten geladen:', { 
           geraete: geraeteData.data?.length || 0, 
-          verbindungen: verbindungenData.data?.length || 0 
+          verbindungen: verbindungenData.data?.length || 0,
+          communication: communicationData.success ? communicationData.data?.length || 0 : 0
         });
         
         setGeraete(geraeteData.data || []);
         setVerbindungen(verbindungenData.data || []);
-        generiereNetzwerkDiagramm(geraeteData.data || [], verbindungenData.data || []);
+        setCommunicationMatrix(communicationData.success ? communicationData.data || [] : []);
+        generiereNetzwerkDiagramm(geraeteData.data || [], verbindungenData.data || [], communicationData.success ? communicationData.data || [] : []);
       } else {
         setError(geraeteData.error || verbindungenData.error || 'Fehler beim Laden der Diagrammdaten');
       }
@@ -526,6 +532,29 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     } catch (err) {
       console.error('Fehler beim Laden der Netzbereiche:', err);
     }
+  };
+
+  // Farbe für Kommunikationsprotokolle bestimmen
+  const getProtocolColor = (protocol: IndustrialProtocol): string => {
+    const protocolColors: Record<string, string> = {
+      'PROFINET': '#4caf50',          // Grün für PROFINET
+      'PROFIBUS': '#2e7d32',          // Dunkelgrün für PROFIBUS
+      'EtherNet/IP': '#ff9800',       // Orange für EtherNet/IP
+      'Modbus TCP': '#2196f3',        // Blau für Modbus TCP
+      'Modbus RTU': '#1976d2',        // Dunkelblau für Modbus RTU
+      'OPC UA': '#9c27b0',            // Lila für OPC UA
+      'OPC DA': '#7b1fa2',            // Dunkellila für OPC DA
+      'BACnet': '#00bcd4',            // Cyan für BACnet
+      'HART': '#795548',              // Braun für HART
+      'Foundation Fieldbus': '#607d8b', // Grau für Foundation Fieldbus
+      'CAN Bus': '#f44336',           // Rot für CAN Bus
+      'DeviceNet': '#e91e63',         // Pink für DeviceNet
+      'ControlNet': '#ff5722',        // Tiefrot für ControlNet
+      'AS-Interface': '#ffeb3b',      // Gelb für AS-Interface
+      'IO-Link': '#cddc39',           // Lime für IO-Link
+      'Sonstiges': '#9e9e9e'          // Grau für Sonstiges
+    };
+    return protocolColors[protocol] || '#9e9e9e';
   };
 
   // Port-Belegung basierend auf Verbindungen berechnen (wie in RackVisualisierung)
@@ -647,7 +676,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     return layoutedNodes;
   };
 
-  const generiereNetzwerkDiagramm = (geraeteData: Geraet[], verbindungenData: any[]) => {
+  const generiereNetzwerkDiagramm = (geraeteData: Geraet[], verbindungenData: any[], communicationData: CommunicationMatrix[] = []) => {
     
     // Filter anwenden
     const gefilterteGeraete = geraeteData.filter(geraet => {
@@ -674,12 +703,13 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       return true;
     });
     
-    // Verbindungen basierend auf gefilterten Geräten filtern
-    const gefilterteVerbindungen = verbindungenData.filter(verbindung => {
-      const quellGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.quell_geraet_id);
-      const zielGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.ziel_geraet_id);
-      return quellGeraetVorhanden && zielGeraetVorhanden;
-    });
+    // Verbindungen basierend auf gefilterten Geräten filtern (nur für physische Verbindungen)
+    const gefilterteVerbindungen = (verbindungsTyp === 'physical' || verbindungsTyp === 'both') ? 
+      verbindungenData.filter(verbindung => {
+        const quellGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.quell_geraet_id);
+        const zielGeraetVorhanden = gefilterteGeraete.some(g => g.id === verbindung.ziel_geraet_id);
+        return quellGeraetVorhanden && zielGeraetVorhanden;
+      }) : [];
     
     // Nodes erstellen mit erweiterten Daten und berechneten Port-Belegungen
     const tempNodes: Node[] = gefilterteGeraete.map((geraet, index) => {
@@ -1172,6 +1202,78 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       console.error('❌ Edges mit unbekannten Node-IDs:', orphanEdges);
     }
     
+    // Communication Matrix Verbindungen hinzufügen (logische Verbindungen)
+    if ((verbindungsTyp === 'logical' || verbindungsTyp === 'both') && communicationData && communicationData.length > 0) {
+      // Filtere Communication Matrix basierend auf gefilterten Geräten
+      const gefilterdeCommunication = communicationData.filter(comm => {
+        const quellVorhanden = gefilterteGeraete.some(g => g.id === comm.quellGeraetId);
+        const zielVorhanden = gefilterteGeraete.some(g => g.id === comm.zielGeraetId);
+        return quellVorhanden && zielVorhanden;
+      });
+
+      gefilterdeCommunication.forEach((communication, index) => {
+        const quellNode = newNodes.find(n => n.id === communication.quellGeraetId);
+        const zielNode = newNodes.find(n => n.id === communication.zielGeraetId);
+        
+        if (!quellNode || !zielNode) return;
+
+        const protocolColor = getProtocolColor(communication.protokoll);
+        const edgeId = `communication-${communication.id || index}`;
+        
+        // Handle-Auswahl für logische Verbindungen (einfacher)
+        const sourceHandle = 'right';
+        const targetHandle = 'left-target';
+        
+        // Label mit Protokoll und Datentyp
+        const label = `${communication.protokoll}${communication.datentyp ? ` (${communication.datentyp})` : ''}`;
+        
+        const edge: Edge = {
+          id: edgeId,
+          source: quellNode.id,
+          target: zielNode.id,
+          sourceHandle,
+          targetHandle,
+          type: 'default',
+          label,
+          animated: communication.realTimeRequirement, // Animiert für Echtzeitverbindungen
+          style: {
+            stroke: protocolColor,
+            strokeWidth: communication.prioritaet === 'Critical' ? 4 : 
+                         communication.prioritaet === 'High' ? 3 : 2,
+            strokeDasharray: verbindungsTyp === 'both' ? '5,5' : undefined, // Gestrichelt wenn beide Typen angezeigt
+          },
+          labelStyle: {
+            fill: protocolColor,
+            fontWeight: 'bold',
+            fontSize: '11px',
+            backgroundColor: darkMode ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+          },
+          labelBgStyle: {
+            fill: darkMode ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+            strokeWidth: 0,
+          },
+          data: {
+            typ: 'communication',
+            protokoll: communication.protokoll,
+            richtung: communication.richtung,
+            datentyp: communication.datentyp,
+            prioritaet: communication.prioritaet,
+            realTime: communication.realTimeRequirement,
+            maxLatenz: communication.maxLatenz,
+            verschluesselung: communication.verschluesselung,
+            authentifizierung: communication.authentifizierung,
+            bemerkungen: communication.bemerkungen,
+            quellName: gefilterteGeraete.find(g => g.id === communication.quellGeraetId)?.name,
+            zielName: gefilterteGeraete.find(g => g.id === communication.zielGeraetId)?.name,
+          },
+        };
+        
+        newEdges.push(edge);
+      });
+    }
+
     // Test-Edge hinzufügen wenn keine Edges aber Nodes vorhanden
     if (newEdges.length === 0 && newNodes.length >= 2) {
       console.log('🧪 Füge Test-Edge hinzu für Debugging');
@@ -1544,8 +1646,21 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
               ))}
             </Select>
           </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Verbindungstyp</InputLabel>
+            <Select
+              value={verbindungsTyp}
+              onChange={(e) => setVerbindungsTyp(e.target.value as 'physical' | 'logical' | 'both')}
+              label="Verbindungstyp"
+            >
+              <MenuItem value="physical">Physische Kabel</MenuItem>
+              <MenuItem value="logical">Logische Kommunikation</MenuItem>
+              <MenuItem value="both">Beides</MenuItem>
+            </Select>
+          </FormControl>
           
-          {(geraetetypFilter !== 'alle' || kategorieFilter !== 'alle' || netzbereichFilter !== 'alle') && (
+          {(geraetetypFilter !== 'alle' || kategorieFilter !== 'alle' || netzbereichFilter !== 'alle' || verbindungsTyp !== 'physical') && (
             <Button
               size="small"
               variant="outlined"
@@ -1553,6 +1668,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
                 setGeraetetypFilter('alle');
                 setKategorieFilter('alle');
                 setNetzbereichFilter('alle');
+                setVerbindungsTyp('physical');
               }}
             >
               Filter zurücksetzen
@@ -1653,7 +1769,10 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
                   Geräte: {geraete.length}
                 </Typography>
                 <Typography variant="caption" display="block">
-                  Verbindungen: {verbindungen.length}
+                  Physische Verbindungen: {verbindungen.length}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Logische Verbindungen: {communicationMatrix.length}
                 </Typography>
                 {autoRefresh && (
                   <Typography variant="caption" display="block" sx={{ color: 'primary.main' }}>

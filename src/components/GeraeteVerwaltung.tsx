@@ -93,6 +93,7 @@ const GeraeteVerwaltung: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bearbeitenDialogOpen, setBearbeitenDialogOpen] = useState(false);
+  const [loeschenDialogOpen, setLoeschenDialogOpen] = useState(false);
   const [selectedGeraet, setSelectedGeraet] = useState<Geraet | null>(null);
   const [netzbereichDialogOpen, setNetzbereichDialogOpen] = useState(false);
   const [geraetetypDialogOpen, setGeraetetypDialogOpen] = useState(false);
@@ -686,6 +687,32 @@ const GeraeteVerwaltung: React.FC = () => {
     } catch (err) {
       setError('Verbindungsfehler zum Server');
       console.error('Fehler beim Aktualisieren des Geräts:', err);
+    }
+  };
+
+  // Gerät löschen
+  const loescheGeraet = async () => {
+    try {
+      if (!selectedGeraet) return;
+
+      const response = await fetch(`/api/geraete/${selectedGeraet.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setLoeschenDialogOpen(false);
+        setSelectedGeraet(null);
+        if (selectedStandort) {
+          ladeGeraete(selectedStandort);
+        }
+      } else {
+        setError(data.error || 'Fehler beim Löschen des Geräts');
+      }
+    } catch (err) {
+      setError('Verbindungsfehler zum Server');
+      console.error('Fehler beim Löschen des Geräts:', err);
     }
   };
 
@@ -1776,6 +1803,18 @@ const GeraeteVerwaltung: React.FC = () => {
                     <EditIcon />
                   </IconButton>
                 </Tooltip>
+                <Tooltip title="Löschen">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => {
+                      setSelectedGeraet(geraet);
+                      setLoeschenDialogOpen(true);
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}
@@ -2034,43 +2073,56 @@ const GeraeteVerwaltung: React.FC = () => {
                     </CardContent>
                     
                     <CardActions sx={{ justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button 
+                          size="small" 
+                          startIcon={<ViewIcon />}
+                          onClick={() => {
+                            setSelectedGeraet(geraet);
+                            setDetailDialogOpen(true);
+                            ladeGeraeteVerbindungen(geraet.id);
+                          }}
+                        >
+                          Details
+                        </Button>
+                        <Button 
+                          size="small" 
+                          startIcon={<EditIcon />}
+                          onClick={() => {
+                            // Gerät in bearbeitbares Format kopieren mit IP-Konfiguration Migration
+                            const bearbeitbaresGeraet = {
+                              ...geraet,
+                              ipKonfiguration: {
+                                typ: geraet.ipKonfiguration?.typ || 'dhcp',
+                                ipAdresse: geraet.ipKonfiguration?.ipAdresse || '',
+                                netzwerkbereich: geraet.ipKonfiguration?.netzwerkbereich || '',
+                              },
+                              // Neue IP-Konfigurationen - Migration von Legacy-Daten
+                              ipKonfigurationen: migriereAlteFeldZuNeueIPKonfiguration(geraet),
+                              oeffentlicheIPKonfigurationen: geraet.oeffentlicheIPKonfigurationen || [],
+                              rackPosition: {
+                                rack: geraet.rackPosition?.rack || '',
+                                einheit: geraet.rackPosition?.einheit || 0,
+                              },
+                              belegteports: geraet.belegteports || generierePortKonfiguration(geraet.anzahlNetzwerkports, false, [])
+                            };
+                            setSelectedGeraet(bearbeitbaresGeraet);
+                            setBearbeitenDialogOpen(true);
+                          }}
+                        >
+                          Bearbeiten
+                        </Button>
+                      </Box>
                       <Button 
                         size="small" 
-                        startIcon={<ViewIcon />}
+                        color="error"
+                        startIcon={<DeleteIcon />}
                         onClick={() => {
                           setSelectedGeraet(geraet);
-                          setDetailDialogOpen(true);
-                          ladeGeraeteVerbindungen(geraet.id);
+                          setLoeschenDialogOpen(true);
                         }}
                       >
-                        Details
-                      </Button>
-                      <Button 
-                        size="small" 
-                        startIcon={<EditIcon />}
-                        onClick={() => {
-                          // Gerät in bearbeitbares Format kopieren mit IP-Konfiguration Migration
-                          const bearbeitbaresGeraet = {
-                            ...geraet,
-                            ipKonfiguration: {
-                              typ: geraet.ipKonfiguration?.typ || 'dhcp',
-                              ipAdresse: geraet.ipKonfiguration?.ipAdresse || '',
-                              netzwerkbereich: geraet.ipKonfiguration?.netzwerkbereich || '',
-                            },
-                            // Neue IP-Konfigurationen - Migration von Legacy-Daten
-                            ipKonfigurationen: migriereAlteFeldZuNeueIPKonfiguration(geraet),
-                            oeffentlicheIPKonfigurationen: geraet.oeffentlicheIPKonfigurationen || [],
-                            rackPosition: {
-                              rack: geraet.rackPosition?.rack || '',
-                              einheit: geraet.rackPosition?.einheit || 0,
-                            },
-                            belegteports: geraet.belegteports || generierePortKonfiguration(geraet.anzahlNetzwerkports, false, [])
-                          };
-                          setSelectedGeraet(bearbeitbaresGeraet);
-                          setBearbeitenDialogOpen(true);
-                        }}
-                      >
-                        Bearbeiten
+                        Löschen
                       </Button>
                     </CardActions>
                   </Card>
@@ -3225,6 +3277,69 @@ const GeraeteVerwaltung: React.FC = () => {
             disabled={!neuerGeraetetyp.name}
           >
             Hinzufügen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog für Gerät löschen */}
+      <Dialog 
+        open={loeschenDialogOpen} 
+        onClose={() => setLoeschenDialogOpen(false)}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', color: 'error.main' }}>
+          <DeleteIcon sx={{ mr: 1 }} />
+          Gerät löschen
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Sind Sie sicher, dass Sie das folgende Gerät löschen möchten?
+          </Typography>
+          <Box sx={{ 
+            bgcolor: 'background.paper', 
+            border: 1, 
+            borderColor: 'divider', 
+            borderRadius: 1, 
+            p: 2, 
+            mt: 2 
+          }}>
+            <Typography variant="h6" color="error">
+              {selectedGeraet?.name}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Typ: {selectedGeraet?.geraetetyp} | Modell: {selectedGeraet?.modell}
+            </Typography>
+          </Box>
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              <strong>Diese Aktion kann nicht rückgängig gemacht werden!</strong>
+              <br />
+              Alle zugehörigen Daten werden ebenfalls gelöscht:
+            </Typography>
+            <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+              <li>Port-Belegungen und Verbindungen</li>
+              <li>IP-Konfigurationen</li>
+              <li>Compliance-Bewertungen</li>
+              <li>Asset-Lifecycle-Daten</li>
+              <li>Sicherheitsbewertungen</li>
+            </ul>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setLoeschenDialogOpen(false)}
+            variant="outlined"
+          >
+            Abbrechen
+          </Button>
+          <Button 
+            onClick={loescheGeraet}
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+          >
+            Endgültig löschen
           </Button>
         </DialogActions>
       </Dialog>

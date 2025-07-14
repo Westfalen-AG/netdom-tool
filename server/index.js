@@ -558,7 +558,11 @@ app.get('/api/standorte/:standortId/geraete', async (req, res) => {
           portTyp: port.port_typ || 'RJ45',
           geschwindigkeit: port.geschwindigkeit || '1G',
           label: port.label || ''
-        }))
+        })),
+        
+        // Zeitstempel
+        erstelltAm: geraetRow.erstellt_am,
+        aktualisiertAm: geraetRow.aktualisiert_am
       };
 
       geraete.push(geraet);
@@ -828,6 +832,31 @@ app.put('/api/geraete/:id', async (req, res) => {
   } catch (error) {
     await db.rollback();
     console.error('Fehler beim Aktualisieren des Geräts:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Gerät löschen
+app.delete('/api/geraete/:id', async (req, res) => {
+  try {
+    const geraetId = req.params.id;
+
+    // Prüfen ob das Gerät existiert
+    const geraet = await db.get('SELECT id, name, standort_id FROM geraete WHERE id = ?', [geraetId]);
+    if (!geraet) {
+      return res.status(404).json(createResponse(false, null, 'Gerät nicht gefunden'));
+    }
+
+    // Gerät löschen - alle abhängigen Datensätze werden automatisch durch CASCADE gelöscht
+    const result = await db.run('DELETE FROM geraete WHERE id = ?', [geraetId]);
+    
+    if (result.changes === 0) {
+      return res.status(404).json(createResponse(false, null, 'Gerät konnte nicht gelöscht werden'));
+    }
+
+    res.json(createResponse(true, null, `Gerät "${geraet.name}" und alle zugehörigen Daten erfolgreich gelöscht`));
+  } catch (error) {
+    console.error('Fehler beim Löschen des Geräts:', error);
     res.status(500).json(createResponse(false, null, '', error.message));
   }
 });
