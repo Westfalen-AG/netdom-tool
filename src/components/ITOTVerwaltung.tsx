@@ -115,8 +115,13 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
 
   // Dialog State
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogType, setDialogType] = useState<'security' | 'lifecycle' | 'communication' | 'change' | 'compliance'>('security');
+  const [dialogType, setDialogType] = useState<'security' | 'lifecycle' | 'communication' | 'change' | 'compliance' | 'details' | 'security-details' | 'communication-details' | 'change-details' | 'compliance-details' | 'lifecycle-details'>('security');
   const [selectedGeraet, setSelectedGeraet] = useState<Geraet | null>(null);
+  const [selectedSecurityAssessment, setSelectedSecurityAssessment] = useState<SecurityAssessment | null>(null);
+  const [selectedCommunication, setSelectedCommunication] = useState<CommunicationMatrix | null>(null);
+  const [selectedChangeRequest, setSelectedChangeRequest] = useState<ChangeManagement | null>(null);
+  const [selectedComplianceRequirement, setSelectedComplianceRequirement] = useState<ComplianceRequirement | null>(null);
+  const [selectedAssetLifecycle, setSelectedAssetLifecycle] = useState<AssetLifecycle | null>(null);
 
   // Helper function for default compliance requirements
   const getDefaultComplianceRequirements = (): ComplianceRequirement[] => [
@@ -902,7 +907,11 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                     <Tooltip title="Details ansehen">
                       <IconButton 
                         size="small"
-                        onClick={() => navigate(`/standorte/${standortId}/geraete/${geraet.id}`)}
+                        onClick={() => {
+                          setSelectedGeraet(geraet);
+                          setDialogType('details');
+                          setDialogOpen(true);
+                        }}
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
@@ -1046,7 +1055,14 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                           {new Date(assessment.naechsteBewertung).toLocaleDateString('de-DE')}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              setSelectedSecurityAssessment(assessment);
+                              setDialogType('security-details');
+                              setDialogOpen(true);
+                            }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -1188,7 +1204,14 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              setSelectedCommunication(communication);
+                              setDialogType('communication-details');
+                              setDialogOpen(true);
+                            }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -1343,7 +1366,14 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                             : 'Nicht geplant'}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              setSelectedChangeRequest(change);
+                              setDialogType('change-details');
+                              setDialogOpen(true);
+                            }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -1473,7 +1503,14 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                         <TableCell>{requirement.pruefintervall} Monate</TableCell>
                         <TableCell>{requirement.verantwortlicher || 'Nicht zugewiesen'}</TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              setSelectedComplianceRequirement(requirement);
+                              setDialogType('compliance-details');
+                              setDialogOpen(true);
+                            }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -1636,7 +1673,14 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
                             : 'Nicht geplant'}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              setSelectedAssetLifecycle(asset);
+                              setDialogType('lifecycle-details');
+                              setDialogOpen(true);
+                            }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -2131,6 +2175,675 @@ const ITOTVerwaltung: React.FC<ITOTVerwaltungProps> = () => {
               <Button onClick={() => setDialogOpen(false)}>Abbrechen</Button>
               <Button variant="contained" onClick={() => setDialogOpen(false)}>
                 Speichern
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Geräte-Details Dialog */}
+        {dialogType === 'details' && selectedGeraet && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Geräte-Details: {selectedGeraet.name}
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Gerätetyp
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.geraetetyp}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Kategorie
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.geraetekategorie}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Modell
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.modell}
+                    </Typography>
+                  </Grid>
+                  
+                  {selectedGeraet.seriennummer && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Seriennummer
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedGeraet.seriennummer}
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Anzahl Ports
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.anzahlNetzwerkports}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Purdue Level
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.purdueLevel}
+                    </Typography>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Security Zone
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedGeraet.securityZone}
+                    </Typography>
+                  </Grid>
+                  
+                  {selectedGeraet.macAdresse && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        MAC-Adresse
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedGeraet.macAdresse}
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  {selectedGeraet.rackPosition?.rack && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Rack Position
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedGeraet.rackPosition.rack} / {selectedGeraet.rackPosition.einheit}U
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  {selectedGeraet.standortDetails && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Standort Details
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedGeraet.standortDetails}
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  {selectedGeraet.bemerkungen && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Bemerkungen
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedGeraet.bemerkungen}
+                      </Typography>
+                    </Grid>
+                  )}
+                  
+                  {/* IP-Konfigurationen anzeigen */}
+                  {selectedGeraet.ipKonfigurationen && selectedGeraet.ipKonfigurationen.length > 0 && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        IP-Konfigurationen
+                      </Typography>
+                      {selectedGeraet.ipKonfigurationen.map((ipConfig, index) => (
+                        <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                            {ipConfig.name} (Port {ipConfig.portNummer})
+                          </Typography>
+                          <Typography variant="body2">
+                            Typ: {ipConfig.typ === 'dhcp' ? 'DHCP' : 'Statisch'}
+                          </Typography>
+                          {ipConfig.ipAdresse && (
+                            <Typography variant="body2">
+                              IP-Adresse: {ipConfig.ipAdresse}
+                            </Typography>
+                          )}
+                          <Typography variant="body2">
+                            Netzbereich: {ipConfig.netzwerkbereich}
+                          </Typography>
+                          {ipConfig.gateway && (
+                            <Typography variant="body2">
+                              Gateway: {ipConfig.gateway}
+                            </Typography>
+                          )}
+                          {ipConfig.vlan && (
+                            <Typography variant="body2">
+                              VLAN: {ipConfig.vlan.vlanId} ({ipConfig.vlan.vlanName || 'Unbenannt'})
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Security Assessment Details Dialog */}
+        {dialogType === 'security-details' && selectedSecurityAssessment && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Security Assessment Details
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Gerät
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {geraete.find(g => g.id === selectedSecurityAssessment.geraetId)?.name || 'Unbekannt'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      IEC 62443 Level
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedSecurityAssessment.iec62443Level}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Risikoeinschätzung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedSecurityAssessment.risikoEinstufung}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Verantwortlicher
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedSecurityAssessment.verantwortlicher}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Bedrohungsanalyse
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedSecurityAssessment.bedrohungsanalyse}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Schutzmaßnahmen
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedSecurityAssessment.schutzmaßnahmen.join(', ')}
+                    </Typography>
+                  </Grid>
+                  {selectedSecurityAssessment.bemerkungen && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Bemerkungen
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedSecurityAssessment.bemerkungen}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Communication Matrix Details Dialog */}
+        {dialogType === 'communication-details' && selectedCommunication && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Communication Matrix Details
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Quellgerät
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {geraete.find(g => g.id === selectedCommunication.quellGeraetId)?.name || 'Unbekannt'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Zielgerät
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {geraete.find(g => g.id === selectedCommunication.zielGeraetId)?.name || 'Unbekannt'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Protokoll
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.protokoll}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Richtung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.richtung}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Datentyp
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.datentyp}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Priorität
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.prioritaet}
+                    </Typography>
+                  </Grid>
+                  {selectedCommunication.zykluszeit && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Zykluszeit
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedCommunication.zykluszeit} ms
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedCommunication.maxLatenz && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Max. Latenz
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedCommunication.maxLatenz} ms
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Echtzeit-Anforderung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.realTimeRequirement ? 'Ja' : 'Nein'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Sicherheitsrelevant
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedCommunication.sicherheitsrelevant ? 'Ja' : 'Nein'}
+                    </Typography>
+                  </Grid>
+                  {selectedCommunication.bemerkungen && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Bemerkungen
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedCommunication.bemerkungen}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Change Request Details Dialog */}
+        {dialogType === 'change-details' && selectedChangeRequest && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Change Request Details: {selectedChangeRequest.changeNummer}
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Titel
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.titel}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Status
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.status}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Change-Typ
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.changeTyp}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Priorität
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.prioritaet}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Antragsteller
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.antragsteller}
+                    </Typography>
+                  </Grid>
+                  {selectedChangeRequest.geplantesStartDatum && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Geplantes Startdatum
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {new Date(selectedChangeRequest.geplantesStartDatum).toLocaleDateString('de-DE')}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Beschreibung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.beschreibung}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Antragsgrund
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.antragsGrund}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Risikoanalyse
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedChangeRequest.risikoAnalyse}
+                    </Typography>
+                  </Grid>
+                  {selectedChangeRequest.bemerkungen && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Bemerkungen
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedChangeRequest.bemerkungen}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Compliance Requirement Details Dialog */}
+        {dialogType === 'compliance-details' && selectedComplianceRequirement && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Compliance Requirement Details
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Standard
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.standard}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Kategorie
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.kategorie}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Anforderung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.anforderung}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Beschreibung
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.beschreibung}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Anwendbar auf
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.anwendbarAuf.join(', ')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Prüfintervall
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.pruefintervall} Monate
+                    </Typography>
+                  </Grid>
+                  {selectedComplianceRequirement.verantwortlicher && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Verantwortlicher
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedComplianceRequirement.verantwortlicher}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Dokumentation erforderlich
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedComplianceRequirement.dokumentationsErforderlich ? 'Ja' : 'Nein'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
+
+        {/* Asset Lifecycle Details Dialog */}
+        {dialogType === 'lifecycle-details' && selectedAssetLifecycle && (
+          <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+            <DialogTitle>
+              Asset Lifecycle Details
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ pt: 1 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Gerät
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {geraete.find(g => g.id === selectedAssetLifecycle.geraetId)?.name || 'Unbekannt'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Kritikalität
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedAssetLifecycle.kritikalitaet}
+                    </Typography>
+                  </Grid>
+                  {selectedAssetLifecycle.installationsDatum && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Installationsdatum
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {new Date(selectedAssetLifecycle.installationsDatum).toLocaleDateString('de-DE')}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedAssetLifecycle.erwarteteLebensdauer && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Erwartete Lebensdauer
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedAssetLifecycle.erwarteteLebensdauer} Jahre
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedAssetLifecycle.geplantesEOL && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Geplantes End-of-Life
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {new Date(selectedAssetLifecycle.geplantesEOL).toLocaleDateString('de-DE')}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Ersatzteil-Verfügbarkeit
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedAssetLifecycle.ersatzteilVerfuegbarkeit}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Support-Status
+                    </Typography>
+                    <Typography variant="body1" gutterBottom>
+                      {selectedAssetLifecycle.supportStatus}
+                    </Typography>
+                  </Grid>
+                  {selectedAssetLifecycle.wartungsintervall && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Wartungsintervall
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedAssetLifecycle.wartungsintervall} Tage
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedAssetLifecycle.naechsteWartung && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Nächste Wartung
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {new Date(selectedAssetLifecycle.naechsteWartung).toLocaleDateString('de-DE')}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedAssetLifecycle.wartungsverantwortlicher && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Wartungsverantwortlicher
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedAssetLifecycle.wartungsverantwortlicher}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {selectedAssetLifecycle.bemerkungen && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Bemerkungen
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {selectedAssetLifecycle.bemerkungen}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDialogOpen(false)}>
+                Schließen
               </Button>
             </DialogActions>
           </Dialog>
