@@ -45,7 +45,7 @@ import {
   AutorenewOutlined as AutoRefreshIcon,
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
-import { Geraet, Verbindung, GeraeteTyp } from '../types';
+import { Geraet, Verbindung, GeraeteTyp, Netzbereich } from '../types';
 import { ThemeContext, StandortContext } from '../App';
 
 // Gerätetype zu Farbe Mapping
@@ -455,6 +455,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   
   const [geraete, setGeraete] = useState<Geraet[]>([]);
   const [verbindungen, setVerbindungen] = useState<any[]>([]);
+  const [netzbereichListe, setNetzbereichListe] = useState<Netzbereich[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -509,6 +510,21 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       console.error('Fehler beim Laden der Diagrammdaten:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Netzbereiche für den aktuellen Standort laden
+  const ladeNetzbereichListe = async (standortId: string) => {
+    try {
+      const response = await fetch(`/api/netzbereich-verwaltung?standort_id=${standortId}`);
+      const data = await response.json();
+      if (data.success) {
+        setNetzbereichListe(data.data || []);
+      } else {
+        console.error('Fehler beim Laden der Netzbereiche:', data.error);
+      }
+    } catch (err) {
+      console.error('Fehler beim Laden der Netzbereiche:', err);
     }
   };
 
@@ -648,7 +664,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
       // Netzbereich-Filter
       if (netzbereichFilter !== 'alle') {
         const hatNetzbereich = geraet.ipKonfigurationen?.some(ip => 
-          ip.netzbereichTyp === netzbereichFilter
+          ip.netzwerkbereich === netzbereichFilter
         );
         if (!hatNetzbereich) {
           return false;
@@ -1377,6 +1393,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
     if (autoRefresh && selectedStandort) {
       interval = setInterval(() => {
         ladeDiagrammDaten(selectedStandort);
+        ladeNetzbereichListe(selectedStandort);
       }, 10000); // Alle 10 Sekunden aktualisieren
     }
     
@@ -1388,6 +1405,7 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
   useEffect(() => {
     if (selectedStandort) {
       ladeDiagrammDaten(selectedStandort);
+      ladeNetzbereichListe(selectedStandort);
     }
   }, [selectedStandort]);
 
@@ -1519,12 +1537,11 @@ const NetzwerkDiagramm: React.FC<NetzwerkDiagrammProps> = () => {
               label="Netzbereich"
             >
               <MenuItem value="alle">Alle Netzbereiche</MenuItem>
-              <MenuItem value="IT">IT-Netz</MenuItem>
-              <MenuItem value="OT">OT-Netz</MenuItem>
-              <MenuItem value="SPS">SPS-Netz</MenuItem>
-              <MenuItem value="DMZ">DMZ</MenuItem>
-              <MenuItem value="Management">Management</MenuItem>
-              <MenuItem value="Sonstiges">Sonstiges</MenuItem>
+              {netzbereichListe.map((netzbereich) => (
+                <MenuItem key={netzbereich.id} value={netzbereich.ip_bereich}>
+                  {netzbereich.name} ({netzbereich.ip_bereich})
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           
