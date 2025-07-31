@@ -40,17 +40,20 @@ import {
   NetworkWifi as NetworkIcon,
   ExpandMore as ExpandMoreIcon,
   Lan as LanIcon,
-  RouterOutlined as RouterIcon,
   Storage as StorageIcon,
-  Security as SecurityIcon,
-  Cable as CableIcon,
-  AccountTree as TreeIcon
+  Scanner as ScanIcon,
+  Radar as RadarIcon,
+  DeviceHub as DeviceHubIcon,
+  CheckCircle as CheckIcon,
+  Cancel as CancelIcon,
+  PlayArrow as PlayIcon
 } from '@mui/icons-material';
 import { StandortContext } from '../App';
+import io from 'socket.io-client';
 import { Netzbereich, NetzbereichTyp, NetzbereichFormData } from '../types';
 
 const NetzbereichsVerwaltung: React.FC = () => {
-  const { standorte, selectedStandort, selectedStandortData } = useContext(StandortContext);
+  const { selectedStandort, selectedStandortData } = useContext(StandortContext);
   const [netzbereichListe, setNetzbereichListe] = useState<Netzbereich[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,12 +75,46 @@ const NetzbereichsVerwaltung: React.FC = () => {
   });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Netzwerk-Scan State
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanInProgress, setScanInProgress] = useState(false);
+  const [scanProgress, setScanProgress] = useState({
+    totalHosts: 0,
+    scannedHosts: 0,
+    foundHosts: 0,
+    currentOperation: ''
+  });
+  const [scanResults, setScanResults] = useState<any[]>([]);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null);
+  const [scanResultsDialogOpen, setScanResultsDialogOpen] = useState(false);
+  const [availableDeviceTypes, setAvailableDeviceTypes] = useState<string[]>([]);
 
   useEffect(() => {
     if (selectedStandort) {
       ladeNetzbereichListe();
     }
-  }, [selectedStandort]);
+  }, [selectedStandort]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Verfügbare Gerätetypen laden
+  useEffect(() => {
+    ladeVerfuegbareGeraetetypen();
+  }, []);
+
+  const ladeVerfuegbareGeraetetypen = async () => {
+    try {
+      const response = await fetch('/api/device-types');
+      const data = await response.json();
+      if (data.success) {
+        setAvailableDeviceTypes(data.data);
+      } else {
+        console.error('Fehler beim Laden der Gerätetypen:', data.error);
+      }
+    } catch (error) {
+      console.error('Fehler beim Laden der Gerätetypen:', error);
+    }
+  };
 
   const ladeNetzbereichListe = async () => {
     try {
@@ -242,6 +279,135 @@ const NetzbereichsVerwaltung: React.FC = () => {
     }));
   };
 
+  // Socket.IO Verbindung für Live-Updates
+  useEffect(() => {
+    if (!currentScanId) return;
+
+    const socket = io('http://localhost:3001');
+
+    socket.on('scan-progress', (data: any) => {
+      if (data.scanId === currentScanId) {
+        setScanProgress(data.progress);
+      }
+    });
+
+    socket.on('scan-completed', (data: any) => {
+      if (data.scanId === currentScanId) {
+        setScanInProgress(false);
+        setScanResults(data.results);
+        setScanResultsDialogOpen(true);
+        setScanDialogOpen(false);
+      }
+    });
+
+    socket.on('scan-error', (data: any) => {
+      if (data.scanId === currentScanId) {
+        setScanInProgress(false);
+        setSnackbarMessage(`Scan-Fehler: ${data.error}`);
+        setSnackbarOpen(true);
+        setScanDialogOpen(false);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentScanId]);
+
+  // Netzwerk-Scan starten
+  const startNetworkScan = async (ipRange: string) => {
+    try {
+      setScanInProgress(true);
+      setScanProgress({ totalHosts: 0, scannedHosts: 0, foundHosts: 0, currentOperation: 'Initialisierung...' });
+      
+      const response = await fetch('/api/network-scan/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ipRange,
+          standortId: selectedStandort
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setCurrentScanId(data.data.scanId);
+      } else {
+        throw new Error(data.error || 'Fehler beim Starten des Scans');
+      }
+    } catch (error) {
+      setScanInProgress(false);
+      setSnackbarMessage(`Fehler beim Starten des Scans: ${error}`);
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Ausgewählte Geräte aus Scan-Ergebnissen erstellen
+  const createDevicesFromScan = async () => {
+    try {
+      if (!currentScanId || selectedDevices.size === 0) return;
+
+      const selectedDeviceData = scanResults.filter((_, index) => 
+        selectedDevices.has(index.toString())
+      ).map(device => ({
+        ...device,
+        // Stelle sicher, dass der ausgewählte Gerätetyp verwendet wird
+        deviceType: device.suggestedDeviceType,
+        name: device.suggestedName
+      }));
+
+      const response = await fetch(`/api/network-scan/${currentScanId}/create-devices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          selectedDevices: selectedDeviceData
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSnackbarMessage(`${data.data.createdDevices.length} Geräte erfolgreich erstellt!`);
+        setSnackbarOpen(true);
+        setScanResultsDialogOpen(false);
+        setSelectedDevices(new Set());
+        setScanResults([]);
+        setCurrentScanId(null);
+      } else {
+        throw new Error(data.error || 'Fehler beim Erstellen der Geräte');
+      }
+    } catch (error) {
+      setSnackbarMessage(`Fehler beim Erstellen der Geräte: ${error}`);
+      setSnackbarOpen(true);
+    }
+  };
+
+  // Geräte-Auswahl umschalten
+  const toggleDeviceSelection = (index: number) => {
+    const newSelection = new Set(selectedDevices);
+    const indexStr = index.toString();
+    
+    if (newSelection.has(indexStr)) {
+      newSelection.delete(indexStr);
+    } else {
+      newSelection.add(indexStr);
+    }
+    
+    setSelectedDevices(newSelection);
+  };
+
+  // Alle Geräte auswählen/abwählen
+  const toggleAllDevices = () => {
+    if (selectedDevices.size === scanResults.length) {
+      setSelectedDevices(new Set());
+    } else {
+      setSelectedDevices(new Set(scanResults.map((_, index) => index.toString())));
+    }
+  };
+
   if (!selectedStandortData) {
     return (
       <Box sx={{ mt: 4 }}>
@@ -378,6 +544,19 @@ const NetzbereichsVerwaltung: React.FC = () => {
                                     onClick={() => handleDelete(netzbereich.id)}
                                   >
                                     <DeleteIcon />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Netzwerk scannen">
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() => {
+                                      setScanDialogOpen(true);
+                                      setFormData(prev => ({ ...prev, ip_bereich: netzbereich.ip_bereich }));
+                                    }}
+                                    disabled={scanInProgress}
+                                  >
+                                    <ScanIcon />
                                   </IconButton>
                                 </Tooltip>
                               </Box>
@@ -547,6 +726,276 @@ const NetzbereichsVerwaltung: React.FC = () => {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Netzwerk-Scan Dialog */}
+      <Dialog open={scanDialogOpen} onClose={() => !scanInProgress && setScanDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <RadarIcon />
+            Netzwerk-Scan
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {!scanInProgress ? (
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label="IP-Bereich"
+                value={formData.ip_bereich}
+                onChange={(e) => setFormData(prev => ({ ...prev, ip_bereich: e.target.value }))}
+                placeholder="z.B. 192.168.1.0/24 oder 192.168.1.1-192.168.1.254"
+                helperText="Unterstützt CIDR-Notation (/24) oder IP-Bereiche (1.1.1.1-1.1.1.254)"
+                sx={{ mb: 2 }}
+              />
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  <strong>Der Scan wird folgende Aktionen durchführen:</strong>
+                </Typography>
+                <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                  <li>Host-Discovery mit Ping und TCP-Verbindungsversuchen</li>
+                  <li>Port-Scan auf häufig verwendete Services (Web, SSH, RDP, VNC, Datenbanken, etc.)</li>
+                  <li>Automatische Geräteerkennung basierend auf offenen Ports</li>
+                  <li>Vorschläge für Gerätetypen und Namen</li>
+                </ul>
+              </Alert>
+            </Box>
+          ) : (
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Scan läuft...
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ 
+                        width: '100%', 
+                        bgcolor: 'grey.300', 
+                        borderRadius: 1,
+                        height: 8,
+                        overflow: 'hidden'
+                      }}>
+                        <Box sx={{
+                          width: `${scanProgress.totalHosts > 0 ? (scanProgress.scannedHosts / scanProgress.totalHosts) * 100 : 0}%`,
+                          height: '100%',
+                          bgcolor: 'primary.main',
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </Box>
+                    </Box>
+                    <Typography variant="body2" sx={{ minWidth: 80 }}>
+                      {scanProgress.scannedHosts}/{scanProgress.totalHosts}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {scanProgress.currentOperation}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 3, mt: 2 }}>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="primary.main">
+                        {scanProgress.foundHosts}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Gefundene Hosts
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="info.main">
+                        {scanProgress.scannedHosts}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Gescannte IPs
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Typography variant="h4" color="success.main">
+                        {Math.round((scanProgress.scannedHosts / Math.max(scanProgress.totalHosts, 1)) * 100)}%
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Fortschritt
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setScanDialogOpen(false)} disabled={scanInProgress}>
+            Abbrechen
+          </Button>
+          {!scanInProgress && (
+            <Button 
+              onClick={() => startNetworkScan(formData.ip_bereich)} 
+              variant="contained"
+              startIcon={<PlayIcon />}
+              disabled={!formData.ip_bereich.trim()}
+            >
+              Scan starten
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Scan-Ergebnisse Dialog */}
+      <Dialog open={scanResultsDialogOpen} onClose={() => setScanResultsDialogOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DeviceHubIcon />
+              Scan-Ergebnisse ({scanResults.length} Geräte gefunden)
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={toggleAllDevices}
+              startIcon={selectedDevices.size === scanResults.length ? <CancelIcon /> : <CheckIcon />}
+            >
+              {selectedDevices.size === scanResults.length ? 'Alle abwählen' : 'Alle auswählen'}
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell padding="checkbox">Auswahl</TableCell>
+                  <TableCell>IP-Adresse / Hostname</TableCell>
+                  <TableCell>Gerätetyp</TableCell>
+                  <TableCell>Gerätename</TableCell>
+                  <TableCell>Offene Ports</TableCell>
+                  <TableCell>Services</TableCell>
+                  <TableCell>Kategorien</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {scanResults.map((device, index) => (
+                  <TableRow key={index} hover>
+                    <TableCell padding="checkbox">
+                      <IconButton
+                        onClick={() => toggleDeviceSelection(index)}
+                        color={selectedDevices.has(index.toString()) ? 'primary' : 'default'}
+                      >
+                        {selectedDevices.has(index.toString()) ? <CheckIcon /> : <CancelIcon />}
+                      </IconButton>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        {device.ip}
+                      </Typography>
+                      {device.hostname && (
+                        <Typography variant="body2" color="primary">
+                          {device.hostname}
+                        </Typography>
+                      )}
+                      <Typography variant="caption" color="text.secondary">
+                        {device.discoveryMethod}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={device.suggestedDeviceType || ''}
+                          onChange={(e) => {
+                            const newResults = [...scanResults];
+                            newResults[index].suggestedDeviceType = e.target.value;
+                            setScanResults(newResults);
+                          }}
+                          displayEmpty
+                        >
+                          <MenuItem value="" disabled>
+                            Gerätetyp wählen
+                          </MenuItem>
+                          {availableDeviceTypes.map((type) => (
+                            <MenuItem key={type} value={type}>
+                              {type}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        value={device.suggestedName}
+                        onChange={(e) => {
+                          const newResults = [...scanResults];
+                          newResults[index].suggestedName = e.target.value;
+                          setScanResults(newResults);
+                        }}
+                        placeholder="Gerätename"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {device.portCount} Port{device.portCount !== 1 ? 's' : ''}
+                      </Typography>
+                      {device.openPorts.slice(0, 3).map((port: any) => (
+                        <Chip
+                          key={port.port}
+                          label={`${port.port}/${port.service.name}`}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                      {device.openPorts.length > 3 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{device.openPorts.length - 3} weitere
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {device.openPorts.slice(0, 2).map((port: any) => (
+                        <Typography key={port.port} variant="caption" display="block">
+                          {port.service.service}
+                        </Typography>
+                      ))}
+                      {device.openPorts.length > 2 && (
+                        <Typography variant="caption" color="text.secondary">
+                          +{device.openPorts.length - 2} weitere
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {device.categories?.map((category: string) => (
+                        <Chip
+                          key={category}
+                          label={category}
+                          size="small"
+                          color={category === 'Industrial' ? 'warning' : 'info'}
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {scanResults.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body1" color="text.secondary">
+                Keine Geräte gefunden.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setScanResultsDialogOpen(false)}>
+            Schließen
+          </Button>
+          <Button
+            onClick={createDevicesFromScan}
+            variant="contained"
+            disabled={selectedDevices.size === 0}
+            startIcon={<CheckIcon />}
+          >
+            {selectedDevices.size} Gerät{selectedDevices.size !== 1 ? 'e' : ''} erstellen
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Snackbar für Benachrichtigungen */}

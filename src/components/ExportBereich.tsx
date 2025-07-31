@@ -5,17 +5,13 @@ import {
   Button,
   Grid,
   Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+
   FormControlLabel,
   Checkbox,
   Alert,
   CircularProgress,
   Divider,
-  Card,
-  CardContent,
+
   Table,
   TableBody,
   TableCell,
@@ -23,11 +19,10 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Switch,
-  FormGroup,
+
 } from '@mui/material';
 import {
-  GetApp as DownloadIcon,
+
   PictureAsPdf as PdfIcon,
   Image as ImageIcon,
   LocationOn as LocationIcon,

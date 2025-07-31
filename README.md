@@ -2,8 +2,8 @@
 
 Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur an OnSite-Anlagen der Westfalen AG.
 
-**Version:** 1.6.0  
-**Letztes Update:** Juli 2025  
+**Version:** 1.7.0  
+**Letztes Update:** 31. Juli 2025  
 **Support:** Niklas Terhorst (n.terhorst@westfalen.com oder Teams)
 
 ## 🚀 Funktionen
@@ -22,7 +22,25 @@ Ein umfassendes Tool zur Dokumentation und Verwaltung der Netzwerk-Infrastruktur
 - **Dark/Light Mode**: Benutzerfreundliche Themes für verschiedene Arbeitsumgebungen
 - **IT/OT-Verwaltung**: Umfassende Verwaltung von IT- und OT-Infrastruktur mit industriellen Standards
 
-### Neue Features in Version 1.6.0
+### Neue Features in Version 1.7.0
+- **Netzwerk-Scanning**: Vollautomatische Netzwerk-Discovery mit intelligenter Geräteerkennung
+  - **Parallele Host-Discovery**: 25 Hosts gleichzeitig scannen für maximale Performance
+  - **Multi-Methoden-Erkennung**: Ping + TCP-Connect für Hosts, die nicht auf Ping antworten
+  - **Port-Scanning**: Automatische Erkennung von 50+ bekannten Services (Web, SSH, RDP, VNC, Datenbanken, Industrial, etc.)
+  - **Intelligente Geräteerkennung**: Automatische Typisierung basierend auf offenen Port-Kombinationen
+  - **Hostname-Auflösung**: DNS Reverse Lookup für bessere Gerätenamen-Vorschläge
+  - **Live-Progress-Tracking**: Echzeit-Updates über WebSocket-Verbindung
+  - **Interaktive Geräteauswahl**: Dropdown für Gerätetypen aus Datenbank, editierbare Namen
+  - **Batch-Geräteerstellung**: Mehrere Geräte gleichzeitig aus Scan-Ergebnissen erstellen
+- **Einstellungsseite**: Vollständige Anpassung der Anwendung
+  - **Logo-Upload**: Separate Logos für Hell- und Dunkel-Modus mit automatischer Optimierung
+  - **Favicon-Management**: Automatische Generierung aller benötigten Größen (16x16 bis 512x512px)
+  - **App-Branding**: Anpassbare App-Namen und Firmenbezeichnungen
+  - **Reset-Funktionalität**: Zurücksetzen auf Standard-Westfalen-Branding
+- **Performance-Optimierungen**: 5-8x schnellere Netzwerk-Scans durch Parallelisierung
+- **Erweiterte Standort-Integration**: Nahtlose Integration in bestehende Standortverwaltung
+
+### Features aus Version 1.6.0
 - **IT/OT-Verwaltung**: Vollständige Implementierung der IT/OT-Infrastruktur-Verwaltung
   - **Dashboard**: Umfassende Statistiken und Übersichten für IT/OT-Geräte
   - **Purdue Model Integration**: Klassifizierung von Geräten nach Purdue-Leveln (L0-L5)
@@ -315,6 +333,21 @@ westfalen-network-tool/
 - `POST /api/geraete/:geraetId/compliance-assessments` - Compliance Assessment erstellen
 - `PUT /api/compliance-assessments/:id` - Compliance Assessment aktualisieren
 - `DELETE /api/compliance-assessments/:id` - Compliance Assessment löschen
+
+### Netzwerk-Scanning
+- `POST /api/network-scan/start` - Netzwerk-Scan starten
+- `GET /api/network-scan/:scanId/status` - Scan-Status abrufen
+- `GET /api/network-scan/:scanId/results` - Scan-Ergebnisse abrufen
+- `POST /api/network-scan/:scanId/create-devices` - Geräte aus Scan-Ergebnissen erstellen
+- `DELETE /api/network-scan/:scanId` - Scan-Session löschen
+- `GET /api/device-types` - Verfügbare Gerätetypen für Dropdown abrufen
+
+### Einstellungen
+- `GET /api/settings` - App-Einstellungen abrufen
+- `PUT /api/settings` - App-Einstellungen aktualisieren
+- `POST /api/settings/upload-logo` - Logo hochladen
+- `POST /api/settings/upload-favicon` - Favicon hochladen
+- `POST /api/settings/reset` - Einstellungen auf Standard zurücksetzen
 
 ### Ansprechpartner
 - `GET /api/ansprechpartner` - Alle Ansprechpartner abrufen

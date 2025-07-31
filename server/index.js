@@ -1,9 +1,23 @@
 const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const sharp = require('sharp');
+const http = require('http');
+const { Server } = require('socket.io');
 const Database = require('./database');
+const NetworkScanner = require('./networkScanner');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = process.env.PORT || 3001;
 
 // Middleware
@@ -12,6 +26,9 @@ app.use(express.json());
 
 // Datenbank-Instanz
 const db = new Database();
+
+// Netzwerk-Scanner Instanz
+const networkScanner = new NetworkScanner();
 
 // Hilfsfunktionen
 const createResponse = (success, data = null, message = '', error = null) => ({
@@ -3794,6 +3811,485 @@ app.get('/api/standorte/:standortId/asset-lifecycle', async (req, res) => {
   }
 });
 
+// =================== NETZWERK-SCAN API ===================
+
+// Aktive Scan-Sessions verwalten
+const activeScanSessions = new Map();
+
+// Socket.IO Verbindungen für Live-Updates
+io.on('connection', (socket) => {
+  console.log('Client verbunden für Netzwerk-Scan Updates:', socket.id);
+  
+  socket.on('disconnect', () => {
+    console.log('Client getrennt:', socket.id);
+  });
+});
+
+// Netzwerk-Scan starten
+app.post('/api/network-scan/start', async (req, res) => {
+  try {
+    const { ipRange, standortId } = req.body;
+    
+    if (!ipRange) {
+      return res.status(400).json(createResponse(false, null, 'IP-Bereich ist erforderlich'));
+    }
+    
+    if (!standortId) {
+      return res.status(400).json(createResponse(false, null, 'Standort-ID ist erforderlich'));
+    }
+
+    const scanId = uuidv4();
+    
+    // Scan-Session erstellen
+    activeScanSessions.set(scanId, {
+      id: scanId,
+      ipRange,
+      standortId,
+      startTime: new Date(),
+      status: 'running',
+      progress: { totalHosts: 0, scannedHosts: 0, foundHosts: 0, currentOperation: 'Initialisierung...' }
+    });
+
+    // Scan asynchron starten
+    networkScanner.scanNetwork(ipRange, (progress) => {
+      // Progress an alle verbundenen Clients senden
+      io.emit('scan-progress', {
+        scanId,
+        progress,
+        timestamp: new Date()
+      });
+      
+      // Session aktualisieren
+      const session = activeScanSessions.get(scanId);
+      if (session) {
+        session.progress = progress;
+      }
+    })
+    .then((results) => {
+      // Scan erfolgreich abgeschlossen
+      const session = activeScanSessions.get(scanId);
+      if (session) {
+        session.status = 'completed';
+        session.results = results;
+        session.endTime = new Date();
+      }
+      
+      io.emit('scan-completed', {
+        scanId,
+        results,
+        timestamp: new Date()
+      });
+    })
+    .catch((error) => {
+      // Scan-Fehler
+      const session = activeScanSessions.get(scanId);
+      if (session) {
+        session.status = 'error';
+        session.error = error.message;
+        session.endTime = new Date();
+      }
+      
+      io.emit('scan-error', {
+        scanId,
+        error: error.message,
+        timestamp: new Date()
+      });
+    });
+
+    res.json(createResponse(true, { scanId }, 'Netzwerk-Scan gestartet'));
+  } catch (error) {
+    console.error('Fehler beim Starten des Netzwerk-Scans:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Scan-Status abrufen
+app.get('/api/network-scan/:scanId/status', async (req, res) => {
+  try {
+    const { scanId } = req.params;
+    const session = activeScanSessions.get(scanId);
+    
+    if (!session) {
+      return res.status(404).json(createResponse(false, null, 'Scan-Session nicht gefunden'));
+    }
+    
+    res.json(createResponse(true, session));
+  } catch (error) {
+    console.error('Fehler beim Abrufen des Scan-Status:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Scan-Ergebnisse abrufen
+app.get('/api/network-scan/:scanId/results', async (req, res) => {
+  try {
+    const { scanId } = req.params;
+    const session = activeScanSessions.get(scanId);
+    
+    if (!session) {
+      return res.status(404).json(createResponse(false, null, 'Scan-Session nicht gefunden'));
+    }
+    
+    if (session.status !== 'completed') {
+      return res.status(400).json(createResponse(false, null, 'Scan noch nicht abgeschlossen'));
+    }
+    
+    res.json(createResponse(true, session.results));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Scan-Ergebnisse:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Geräte aus Scan-Ergebnissen erstellen
+app.post('/api/network-scan/:scanId/create-devices', async (req, res) => {
+  try {
+    const { scanId } = req.params;
+    const { selectedDevices } = req.body;
+    
+    if (!selectedDevices || !Array.isArray(selectedDevices)) {
+      return res.status(400).json(createResponse(false, null, 'Ausgewählte Geräte sind erforderlich'));
+    }
+    
+    const session = activeScanSessions.get(scanId);
+    if (!session) {
+      return res.status(404).json(createResponse(false, null, 'Scan-Session nicht gefunden'));
+    }
+    
+    const standortId = session.standortId;
+    const createdDevices = [];
+    
+    await db.beginTransaction();
+    
+    for (const deviceData of selectedDevices) {
+      const geraetId = uuidv4();
+      
+      // Gerät erstellen
+      await db.run(`
+        INSERT INTO geraete (
+          id, standort_id, name, geraetetyp, modell, seriennummer,
+          ip_typ, ip_adresse, netzwerkbereich, anzahl_netzwerkports,
+          bemerkungen, geraetekategorie
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        geraetId,
+        standortId,
+        deviceData.name || deviceData.suggestedName,
+        deviceData.deviceType || deviceData.suggestedDeviceType,
+        'Unbekannt',
+        null,
+        'statisch',
+        deviceData.ip,
+        session.ipRange,
+        deviceData.openPorts?.length || 0,
+        `Automatisch erstellt durch Netzwerk-Scan. Gefundene Services: ${deviceData.categories?.join(', ') || 'Keine'}`,
+        deviceData.categories?.includes('Industrial') ? 'OT' : 'IT'
+      ]);
+      
+      // Ports erstellen basierend auf gefundenen offenen Ports
+      if (deviceData.openPorts && deviceData.openPorts.length > 0) {
+        for (let i = 0; i < deviceData.openPorts.length; i++) {
+          const port = deviceData.openPorts[i];
+          await db.run(`
+            INSERT INTO port_belegungen (id, geraet_id, port_nummer, belegt, beschreibung, port_typ, geschwindigkeit)
+            VALUES (?, ?, ?, 1, ?, 'RJ45', '1G')
+          `, [
+            uuidv4(),
+            geraetId,
+            i + 1,
+            `${port.service.name} (Port ${port.port})`
+          ]);
+        }
+      } else {
+        // Standard-Port erstellen falls keine offenen Ports gefunden
+        await db.run(`
+          INSERT INTO port_belegungen (id, geraet_id, port_nummer, belegt, port_typ, geschwindigkeit)
+          VALUES (?, ?, 1, 0, 'RJ45', '1G')
+        `, [uuidv4(), geraetId]);
+      }
+      
+      createdDevices.push({
+        id: geraetId,
+        name: deviceData.name || deviceData.suggestedName,
+        ip: deviceData.ip,
+        deviceType: deviceData.deviceType || deviceData.suggestedDeviceType
+      });
+    }
+    
+    await db.commit();
+    
+    // Scan-Session als verarbeitet markieren
+    if (session) {
+      session.status = 'processed';
+      session.createdDevices = createdDevices;
+    }
+    
+    res.json(createResponse(true, { createdDevices }, `${createdDevices.length} Geräte erfolgreich erstellt`));
+  } catch (error) {
+    await db.rollback();
+    console.error('Fehler beim Erstellen der Geräte:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Scan-Session löschen
+app.delete('/api/network-scan/:scanId', async (req, res) => {
+  try {
+    const { scanId } = req.params;
+    
+    if (activeScanSessions.has(scanId)) {
+      activeScanSessions.delete(scanId);
+      res.json(createResponse(true, null, 'Scan-Session gelöscht'));
+    } else {
+      res.status(404).json(createResponse(false, null, 'Scan-Session nicht gefunden'));
+    }
+  } catch (error) {
+    console.error('Fehler beim Löschen der Scan-Session:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Verfügbare Gerätetypen abrufen
+app.get('/api/device-types', async (req, res) => {
+  try {
+    const rows = await db.all(`
+      SELECT DISTINCT name 
+      FROM geraetetypen 
+      WHERE name IS NOT NULL AND name != '' AND aktiv = 1
+      ORDER BY name ASC
+    `);
+    
+    // Standard-Gerätetypen hinzufügen falls keine in der DB vorhanden
+    const defaultTypes = [
+      'Switch', 'Router', 'Server', 'PC', 'Laptop', 'Drucker', 'Access Point',
+      'Firewall', 'Load Balancer', 'NAS', 'IP-Kamera', 'VoIP-Telefon',
+      'PLC', 'HMI', 'Sensor', 'Aktor', 'Gateway', 'Unbekannt'
+    ];
+    
+    let deviceTypes = rows.map(row => row.name);
+    
+    // Fehlende Standard-Typen hinzufügen
+    for (const type of defaultTypes) {
+      if (!deviceTypes.includes(type)) {
+        deviceTypes.push(type);
+      }
+    }
+    
+    deviceTypes.sort();
+    
+    res.json(createResponse(true, deviceTypes));
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Gerätetypen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// =================== EINSTELLUNGEN API ===================
+
+// Multer-Konfiguration für Datei-Upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../public/uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|svg|ico|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Nur Bilddateien sind erlaubt (JPEG, JPG, PNG, GIF, SVG, ICO, WebP)'));
+    }
+  }
+});
+
+// Einstellungen aus Datenbank laden
+app.get('/api/settings', async (req, res) => {
+  try {
+    const settings = await db.get('SELECT * FROM app_settings WHERE id = 1');
+    
+    if (!settings) {
+      // Standard-Einstellungen erstellen falls nicht vorhanden
+      const defaultSettings = {
+        id: 1,
+        logo_light: '/header_weis.png',
+        logo_dark: '/header_weis.png',
+        favicon: '/favicon.ico',
+        app_name: 'Network Documentation Tool',
+        company_name: 'Westfalen AG'
+      };
+      
+      await db.run(`
+        INSERT INTO app_settings (id, logo_light, logo_dark, favicon, app_name, company_name)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [1, defaultSettings.logo_light, defaultSettings.logo_dark, defaultSettings.favicon, 
+          defaultSettings.app_name, defaultSettings.company_name]);
+      
+      res.json(createResponse(true, defaultSettings));
+    } else {
+      res.json(createResponse(true, settings));
+    }
+  } catch (error) {
+    console.error('Fehler beim Laden der Einstellungen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Logo hochladen
+app.post('/api/settings/upload-logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json(createResponse(false, null, 'Keine Datei hochgeladen'));
+    }
+
+    const { theme } = req.body; // 'light' oder 'dark'
+    if (!theme || !['light', 'dark'].includes(theme)) {
+      return res.status(400).json(createResponse(false, null, 'Theme muss "light" oder "dark" sein'));
+    }
+
+    const originalPath = req.file.path;
+    const filename = req.file.filename;
+    const ext = path.extname(filename);
+    const baseName = path.basename(filename, ext);
+    
+    // Optimiertes Logo erstellen (max 200px Höhe, WebP Format für bessere Performance)
+    const optimizedPath = path.join(path.dirname(originalPath), `${baseName}_optimized.webp`);
+    
+    await sharp(originalPath)
+      .resize({ height: 200, withoutEnlargement: true })
+      .webp({ quality: 90 })
+      .toFile(optimizedPath);
+
+    const logoUrl = `/uploads/${baseName}_optimized.webp`;
+    
+    // Datenbank aktualisieren
+    const column = theme === 'light' ? 'logo_light' : 'logo_dark';
+    await db.run(`UPDATE app_settings SET ${column} = ? WHERE id = 1`, [logoUrl]);
+
+    // Original-Datei löschen (behalten nur die optimierte Version)
+    fs.unlinkSync(originalPath);
+
+    res.json(createResponse(true, { logoUrl, theme }, 'Logo erfolgreich hochgeladen'));
+  } catch (error) {
+    console.error('Fehler beim Logo-Upload:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Favicon hochladen
+app.post('/api/settings/upload-favicon', upload.single('favicon'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json(createResponse(false, null, 'Keine Datei hochgeladen'));
+    }
+
+    const originalPath = req.file.path;
+    const filename = req.file.filename;
+    const baseName = path.basename(filename, path.extname(filename));
+    
+    // Verschiedene Favicon-Größen generieren
+    const sizes = [16, 32, 48, 64, 128, 180, 192, 512];
+    const faviconPaths = [];
+
+    for (const size of sizes) {
+      const faviconPath = path.join(path.dirname(originalPath), `favicon-${size}x${size}.png`);
+      await sharp(originalPath)
+        .resize(size, size)
+        .png()
+        .toFile(faviconPath);
+      
+      faviconPaths.push(`/uploads/favicon-${size}x${size}.png`);
+    }
+
+    // Haupt-Favicon (32x32) als favicon.ico
+    const mainFaviconPath = path.join(__dirname, '../public/favicon.ico');
+    await sharp(originalPath)
+      .resize(32, 32)
+      .png()
+      .toFile(mainFaviconPath);
+
+    const faviconUrl = '/favicon.ico';
+    
+    // Datenbank aktualisieren
+    await db.run('UPDATE app_settings SET favicon = ? WHERE id = 1', [faviconUrl]);
+
+    // Original-Datei löschen
+    fs.unlinkSync(originalPath);
+
+    res.json(createResponse(true, { faviconUrl, generatedSizes: faviconPaths }, 'Favicon erfolgreich hochgeladen'));
+  } catch (error) {
+    console.error('Fehler beim Favicon-Upload:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// App-Einstellungen aktualisieren
+app.put('/api/settings', async (req, res) => {
+  try {
+    const { app_name, company_name } = req.body;
+    
+    await db.run(`
+      UPDATE app_settings 
+      SET app_name = ?, company_name = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = 1
+    `, [app_name, company_name]);
+
+    res.json(createResponse(true, null, 'Einstellungen erfolgreich aktualisiert'));
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren der Einstellungen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
+// Auf Standard zurücksetzen
+app.post('/api/settings/reset', async (req, res) => {
+  try {
+    const { type } = req.body; // 'logo', 'favicon', oder 'all'
+    
+    if (type === 'logo' || type === 'all') {
+      await db.run(`
+        UPDATE app_settings 
+        SET logo_light = '/header_weis.png', logo_dark = '/header_weis.png' 
+        WHERE id = 1
+      `);
+    }
+    
+    if (type === 'favicon' || type === 'all') {
+      await db.run('UPDATE app_settings SET favicon = \'/favicon.ico\' WHERE id = 1');
+    }
+    
+    if (type === 'all') {
+      await db.run(`
+        UPDATE app_settings 
+        SET app_name = 'Network Documentation Tool', company_name = 'Westfalen AG' 
+        WHERE id = 1
+      `);
+    }
+
+    res.json(createResponse(true, null, 'Einstellungen erfolgreich zurückgesetzt'));
+  } catch (error) {
+    console.error('Fehler beim Zurücksetzen der Einstellungen:', error);
+    res.status(500).json(createResponse(false, null, '', error.message));
+  }
+});
+
 // Error Handler
 app.use((err, req, res, next) => {
   console.error('Unbehandelter Fehler:', err);
@@ -3801,7 +4297,7 @@ app.use((err, req, res, next) => {
 });
 
 // Server starten
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Westfalen Network Tool Server läuft auf Port ${PORT}`);
 });
 

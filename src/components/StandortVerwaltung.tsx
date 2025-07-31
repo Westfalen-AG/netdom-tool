@@ -37,7 +37,7 @@ import { StandortContext } from '../App';
 
 const StandortVerwaltung: React.FC = () => {
   const navigate = useNavigate();
-  const { selectedStandort, setSelectedStandort } = useContext(StandortContext);
+  const { selectedStandort, setSelectedStandort, ladeStandorte } = useContext(StandortContext);
 
   const [alleStandorte, setAlleStandorte] = useState<Standort[]>([]);
   const [ansprechpartner, setAnsprechpartner] = useState<Ansprechpartner[]>([]);
@@ -107,7 +107,9 @@ const StandortVerwaltung: React.FC = () => {
       if (data.success) {
         setDialogOpen(false);
         resetForm();
-        ladeAlleStandorte();
+        // Sowohl lokale als auch globale Standortliste aktualisieren
+        await ladeAlleStandorte();
+        await ladeStandorte();
       } else {
         setError(data.error || 'Fehler beim Erstellen des Standorts');
       }
@@ -136,7 +138,9 @@ const StandortVerwaltung: React.FC = () => {
         setBearbeitenDialogOpen(false);
         setSelectedStandortForEdit(null);
         resetForm();
-        ladeAlleStandorte();
+        // Sowohl lokale als auch globale Standortliste aktualisieren
+        await ladeAlleStandorte();
+        await ladeStandorte();
       } else {
         setError(data.error || 'Fehler beim Aktualisieren des Standorts');
       }

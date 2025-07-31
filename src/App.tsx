@@ -37,6 +37,7 @@ import {
   Storage as RackIcon,
   Lan as LanIcon,
   Security as SecurityIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 // Komponenten importieren
@@ -54,12 +55,14 @@ import SwitchStackVerwaltung from './components/SwitchStackVerwaltung';
 import Changelog from './components/Changelog';
 import NetzbereichsVerwaltung from './components/NetzbereichsVerwaltung';
 import ITOTVerwaltung from './components/ITOTVerwaltung';
+import Einstellungen from './components/Einstellungen';
 
 // Types importieren
 import { Standort } from './types';
+import { useSettings } from './hooks/useSettings';
 
 const DRAWER_WIDTH = 240;
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.7.0';
 
 // Westfalen AG Theme-Konfiguration
 const getWestfalenTheme = (darkMode: boolean) => createTheme({
@@ -179,6 +182,7 @@ const StandortContext = createContext({
   selectedStandort: '',
   setSelectedStandort: (standortId: string) => {},
   selectedStandortData: null as Standort | null,
+  ladeStandorte: () => Promise.resolve(),
 });
 
 const App: React.FC = () => {
@@ -196,6 +200,9 @@ const App: React.FC = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // App-Einstellungen laden
+  const { settings: appSettings } = useSettings();
 
   // Standorte laden
   const ladeStandorte = useCallback(async () => {
@@ -268,6 +275,7 @@ const App: React.FC = () => {
     selectedStandort,
     setSelectedStandort: handleStandortChange,
     selectedStandortData,
+    ladeStandorte,
   };
 
   return (
@@ -308,15 +316,15 @@ const App: React.FC = () => {
                   onClick={() => navigate('/standorte')}
                 >
                   <img
-                    src={darkMode ? "/header_weis.png" : "/header_weis.png"}
-                    alt="Westfalen AG"
+                    src={appSettings ? (darkMode ? appSettings.logo_dark : appSettings.logo_light) : "/header_weis.png"}
+                    alt={appSettings?.company_name || "Westfalen AG"}
                     style={{ height: '32px', width: 'auto' }}
                   />
                 </Box>
                 
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="h6" noWrap component="div">
-                    Network Documentation Tool
+                    {appSettings?.app_name || "Network Documentation Tool"}
                   </Typography>
                   <Typography variant="caption" sx={{ opacity: 0.8, display: 'block', lineHeight: 1 }}>
                     OnSite Anlagen Management
@@ -378,6 +386,17 @@ const App: React.FC = () => {
                     ))}
                   </Select>
                 </FormControl>
+                
+                {/* Einstellungen Button */}
+                <Tooltip title="Einstellungen">
+                  <IconButton
+                    color="inherit"
+                    onClick={() => navigate('/einstellungen')}
+                    sx={{ ml: 1 }}
+                  >
+                    <SettingsIcon />
+                  </IconButton>
+                </Tooltip>
                 
                 {/* Dark Mode Toggle */}
                 <Tooltip title={darkMode ? "Hell-Modus aktivieren" : "Dunkel-Modus aktivieren"}>
@@ -491,6 +510,7 @@ const App: React.FC = () => {
                   <Route path="/diagramm/:standortName" element={<NetzwerkDiagramm />} />
                   <Route path="/export" element={<ExportBereich />} />
                   <Route path="/changelog" element={<Changelog />} />
+                  <Route path="/einstellungen" element={<Einstellungen />} />
                 </Routes>
               </Box>
               

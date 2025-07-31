@@ -111,26 +111,7 @@ class Database {
         UNIQUE(geraet_id, port_nummer)
       )`,
 
-      // IP-Konfigurationen Tabelle
-      `CREATE TABLE IF NOT EXISTS ip_konfigurationen (
-        id TEXT PRIMARY KEY,
-        geraet_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        port_nummer INTEGER NOT NULL,
-        typ TEXT CHECK(typ IN ('dhcp', 'statisch')) NOT NULL,
-        ip_adresse TEXT,
-        netzwerkbereich TEXT NOT NULL,
-        netzbereich_typ TEXT CHECK(netzbereich_typ IN ('IT', 'OT', 'Sonstiges')) DEFAULT 'IT',
-        gateway TEXT,
-        dns_server TEXT, -- JSON Array als Text
-        vlan_id INTEGER,
-        vlan_name TEXT,
-        vlan_tagged BOOLEAN DEFAULT 0,
-        prioritaet INTEGER DEFAULT 1,
-        aktiv BOOLEAN DEFAULT 1,
-        bemerkungen TEXT,
-        FOREIGN KEY (geraet_id) REFERENCES geraete(id) ON DELETE CASCADE
-      )`,
+      // IP-Konfigurationen Tabelle - wird in createExtendedIPTables() erstellt
 
       // SPS-Netz Konfigurationen Tabelle
       `CREATE TABLE IF NOT EXISTS sps_netz_konfigurationen (
@@ -626,6 +607,18 @@ class Database {
         FOREIGN KEY (stack_id) REFERENCES switch_stacks(id) ON DELETE CASCADE,
         FOREIGN KEY (quell_geraet_id) REFERENCES geraete(id) ON DELETE CASCADE,
         FOREIGN KEY (ziel_geraet_id) REFERENCES geraete(id) ON DELETE CASCADE
+      )`,
+
+      // App-Einstellungen Tabelle
+      `CREATE TABLE IF NOT EXISTS app_settings (
+        id INTEGER PRIMARY KEY,
+        logo_light TEXT DEFAULT '/header_weis.png',
+        logo_dark TEXT DEFAULT '/header_weis.png',
+        favicon TEXT DEFAULT '/favicon.ico',
+        app_name TEXT DEFAULT 'Network Documentation Tool',
+        company_name TEXT DEFAULT 'Westfalen AG',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 
@@ -639,10 +632,15 @@ class Database {
       });
     });
 
-    // Warten bis alle Tabellen erstellt sind, dann Trigger erstellen
+    // Warten bis alle Tabellen erstellt sind, dann erweiterte Tabellen und Migrationen ausführen
     setTimeout(() => {
-      // Erst Migrationen ausführen
-      this.runMigrations();
+      // Erst erweiterte IP-Tabellen erstellen (inkl. geraetetypen)
+      this.createExtendedIPTables();
+      
+      // Dann Migrationen ausführen
+      setTimeout(() => {
+        this.runMigrations();
+      }, 500);
       
       const updateTriggers = [
         `CREATE TRIGGER IF NOT EXISTS update_ansprechpartner_timestamp 
@@ -913,32 +911,10 @@ class Database {
       }
     });
 
-    this.db.run(`
-      UPDATE ip_konfigurationen 
-      SET netzbereich_typ = CASE 
-        WHEN netzbereich_typ = 'SPS' THEN 'OT'
-        WHEN netzbereich_typ = 'DMZ' THEN 'IT'
-        WHEN netzbereich_typ = 'Management' THEN 'IT'
-        ELSE netzbereich_typ
-      END
-    `, (err) => {
-      if (err) {
-        console.error('Fehler bei Migration Netzbereichtypen (ip_konfigurationen):', err.message);
-      } else {
-        console.log('✓ Netzbereichtypen in ip_konfigurationen vereinfacht');
-      }
-    });
+    // Migration für ip_konfigurationen entfernt - neue Tabellendefinition hat keine netzbereich_typ Spalte mehr
+    console.log('✓ ip_konfigurationen Migration übersprungen - neue Tabellendefinition verwendet');
 
-    this.db.run(`
-      ALTER TABLE geraetetypen ADD COLUMN hostname_prefix TEXT
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column name')) {
-        console.error('Fehler bei Migration hostname_prefix (geraetetypen):', err.message);
-      } else if (!err) {
-        console.log('✓ Spalte hostname_prefix zu geraetetypen hinzugefügt');
-      }
-    });
-
+    // Migration für hostname zu geraete hinzufügen (geraetetypen Spalten sind bereits in der Tabellendefinition enthalten)
     this.db.run(`
       ALTER TABLE geraete ADD COLUMN hostname TEXT
     `, (err) => {
@@ -949,16 +925,7 @@ class Database {
       }
     });
 
-    // Migration 15: Kategorie-Spalte zu geraetetypen hinzufügen
-    this.db.run(`
-      ALTER TABLE geraetetypen ADD COLUMN kategorie TEXT CHECK(kategorie IN ('IT', 'OT', 'Hybrid')) DEFAULT 'IT'
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column name')) {
-        console.error('Fehler bei Migration kategorie (geraetetypen):', err.message);
-      } else if (!err) {
-        console.log('✓ Spalte kategorie zu geraetetypen hinzugefügt');
-      }
-    });
+    console.log('✓ geraetetypen Migrationen übersprungen - Spalten bereits in Tabellendefinition enthalten');
 
     // =================== IT/OT MIGRATIONS ===================
     
@@ -1043,9 +1010,6 @@ class Database {
     this.createStandardNetworkSegmentation();
     
     console.log('✓ IT/OT Migrationen abgeschlossen.');
-
-    // Migration 10: Erweiterte IP-Konfiguration Tabellen erstellen
-    this.createExtendedIPTables();
     
     console.log('Migrationen abgeschlossen.');
   }

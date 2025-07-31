@@ -34,6 +34,85 @@ interface ChangelogEntry {
 const Changelog: React.FC = () => {
   const changelogData: ChangelogEntry[] = [
     {
+      version: '1.7.0',
+      date: '2025-07-31',
+      type: 'minor',
+      changes: [
+        {
+          type: 'added',
+          description: 'Vollautomatisches Netzwerk-Scanning mit intelligenter Geräteerkennung implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Parallele Host-Discovery: 25 Hosts gleichzeitig scannen für 5-8x bessere Performance'
+        },
+        {
+          type: 'added',
+          description: 'Multi-Methoden-Erkennung: Ping + TCP-Connect für Hosts, die nicht auf Ping antworten'
+        },
+        {
+          type: 'added',
+          description: 'Port-Scanning für 50+ bekannte Services (Web, SSH, RDP, VNC, Datenbanken, Industrial, etc.)'
+        },
+        {
+          type: 'added',
+          description: 'Intelligente Geräteerkennung basierend auf offenen Port-Kombinationen'
+        },
+        {
+          type: 'added',
+          description: 'Hostname-Auflösung via DNS Reverse Lookup für bessere Gerätenamen-Vorschläge'
+        },
+        {
+          type: 'added',
+          description: 'Live-Progress-Tracking mit Echzeit-Updates über WebSocket-Verbindung'
+        },
+        {
+          type: 'added',
+          description: 'Interaktive Geräteauswahl mit Dropdown für Gerätetypen aus Datenbank'
+        },
+        {
+          type: 'added',
+          description: 'Batch-Geräteerstellung: Mehrere Geräte gleichzeitig aus Scan-Ergebnissen erstellen'
+        },
+        {
+          type: 'added',
+          description: 'Einstellungsseite mit vollständiger App-Anpassung implementiert'
+        },
+        {
+          type: 'added',
+          description: 'Logo-Upload: Separate Logos für Hell- und Dunkel-Modus mit automatischer WebP-Optimierung'
+        },
+        {
+          type: 'added',
+          description: 'Favicon-Management: Automatische Generierung aller benötigten Größen (16x16 bis 512x512px)'
+        },
+        {
+          type: 'added',
+          description: 'App-Branding: Anpassbare App-Namen und Firmenbezeichnungen'
+        },
+        {
+          type: 'added',
+          description: 'Reset-Funktionalität: Zurücksetzen auf Standard-Westfalen-Branding'
+        },
+        {
+          type: 'changed',
+          description: 'Netzbereichs-Verwaltung um Scan-Funktionalität erweitert'
+        },
+        {
+          type: 'changed',
+          description: 'Performance-Optimierungen: Netzwerk-Scans sind jetzt 5-8x schneller durch Parallelisierung'
+        },
+        {
+          type: 'fixed',
+          description: 'ESLint-Warnungen in NetzbereichsVerwaltung.tsx behoben'
+        },
+        {
+          type: 'fixed',
+          description: 'Datenbankfehler bei Gerätetypen-API behoben (korrekte Spaltenreferenz)'
+        }
+      ]
+    },
+    {
       version: '1.6.0',
       date: '2025-07-13',
       type: 'minor',
