@@ -283,7 +283,12 @@ const NetzbereichsVerwaltung: React.FC = () => {
   useEffect(() => {
     if (!currentScanId) return;
 
-    const socket = io('http://localhost:3001');
+    // Dynamische Socket-URL basierend auf dem aktuellen Host
+    const socketUrl = window.location.protocol === 'https:' 
+      ? `https://${window.location.hostname}:3001`
+      : `http://${window.location.hostname}:3001`;
+    
+    const socket = io(socketUrl);
 
     socket.on('scan-progress', (data: any) => {
       if (data.scanId === currentScanId) {

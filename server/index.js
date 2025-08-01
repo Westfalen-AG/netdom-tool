@@ -14,7 +14,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: function (origin, callback) {
+      // Erlaubt alle Origins für Socket.IO-Verbindungen
+      // Sie können dies für Production einschränken
+      callback(null, true);
+    },
     methods: ["GET", "POST"]
   }
 });

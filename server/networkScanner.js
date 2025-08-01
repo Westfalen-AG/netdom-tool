@@ -9,18 +9,18 @@ const execAsync = promisify(exec);
 
 class NetworkScanner {
   constructor() {
-    // Performance-Konfiguration
+    // Performance-Konfiguration - Einfach und schnell
     this.config = {
       hostDiscovery: {
-        batchSize: 25,           // Hosts parallel für Discovery
-        pingTimeout: 1000,       // Ping timeout in ms
-        tcpTimeout: 800,         // TCP timeout in ms
-        batchDelay: 50           // Pause zwischen Batches in ms
+        batchSize: 4,            // Immer 4 Hosts gleichzeitig
+        pingTimeout: 3000,       // 3 Sekunden Ping timeout
+        tcpTimeout: 2000,        // TCP timeout (falls benötigt)
+        batchDelay: 0            // Keine Pause zwischen Batches
       },
       portScanning: {
-        concurrentHosts: 8,      // Hosts parallel für Port-Scan
-        portTimeout: 1200,       // Port-Scan timeout in ms
-        batchDelay: 150          // Pause zwischen Port-Scan Batches in ms
+        concurrentHosts: 4,      // 4 Hosts parallel für Port-Scan
+        portTimeout: 2000,       // Port-Scan timeout in ms
+        batchDelay: 100          // Kurze Pause zwischen Port-Scan Batches
       }
     };
     // Bekannte Ports für verschiedene Services
@@ -187,45 +187,29 @@ class NetworkScanner {
     }
   }
 
-  // Host-Discovery mit mehreren Methoden (optimiert)
+  // Host-Discovery - Einfach nur Ping (schnell und simpel)
   async discoverHost(ip) {
     try {
-      // Ping mit konfigurierbarem Timeout
-      const pingPromise = ping.promise.probe(ip, {
-        timeout: Math.floor(this.config.hostDiscovery.pingTimeout / 1000),
-        extra: ['-c', '1', '-W', this.config.hostDiscovery.pingTimeout.toString()]
-      });
+      // Ping mit plattformspezifischen Parametern
+      const pingOptions = {
+        timeout: 3, // 3 Sekunden
+        min_reply: 1
+      };
 
-      // Parallele TCP-Checks auf häufige Ports
-      const quickPorts = [80, 443, 22, 23, 3389, 161];
-      const tcpPromises = quickPorts.map(async (port) => {
-        try {
-          const status = await portscanner.checkPortStatus(port, ip, { 
-            timeout: this.config.hostDiscovery.tcpTimeout 
-          });
-          return { port, status };
-        } catch (err) {
-          return { port, status: 'closed' };
-        }
-      });
+      // Windows-spezifische Ping-Parameter
+      if (process.platform === 'win32') {
+        pingOptions.extra = ['-n', '1', '-w', '3000']; // 3000ms = 3 Sekunden
+      } else {
+        pingOptions.extra = ['-c', '1', '-W', '3']; // 3 Sekunden
+      }
 
-      // Ping und TCP-Checks parallel ausführen
-      const [pingResult, tcpResults] = await Promise.all([
-        pingPromise,
-        Promise.all(tcpPromises)
-      ]);
+      const pingResult = await ping.promise.probe(ip, pingOptions);
       
       if (pingResult.alive) {
         return { ip, method: 'ping', alive: true };
       }
 
-      // Prüfen ob irgendein TCP-Port offen ist
-      const openPort = tcpResults.find(result => result.status === 'open');
-      if (openPort) {
-        return { ip, method: `tcp-${openPort.port}`, alive: true };
-      }
-
-      return { ip, method: 'none', alive: false };
+      return { ip, method: 'ping-failed', alive: false };
     } catch (error) {
       return { ip, method: 'error', alive: false, error: error.message };
     }
